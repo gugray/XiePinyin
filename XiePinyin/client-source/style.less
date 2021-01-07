@@ -1,0 +1,72 @@
+﻿@fntBaseFamily: "Noto Sans", sans-serif;
+@fntSizePinyin: 18px;
+@fntSizeHanzi: 24px;
+@textColor: #303030;
+@cursorColor: #606060;
+@borderColor: #efa151;
+@selectionColor: #f7edb4;
+
+* { box-sizing: border-box; }
+html { 
+  border: 0; margin: 0; padding: 0; overflow-y: scroll;
+  font-family: @fntBaseFamily; font-size: @fntSizePinyin; color: @textColor;
+}
+body { }
+
+.noselect {
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+}
+
+input {
+  // Fuck browsers
+  outline: none; border-radius: 0; border: 0; -webkit-appearance: none; -webkit-border-radius: 0px;
+  &:focus { outline: none; -webkit-box-shadow: none; box-shadow: none; }
+  font-family: inherit; background-color: inherit;
+}
+#hiddenInput {
+  border: 0; padding: 0; font-family: @fntBaseFamily; font-size: @fntSizePinyin;
+  position: absolute; top: 0; left: 0;
+  width: 0; height: 0;
+}
+
+.doc {
+  position: relative; width: 800px; margin: 0 auto; padding: 12px;
+  min-height: 500px;
+  border: 1px solid @borderColor;
+  .caret {
+    position: absolute; width: 2px; background-color: @cursorColor;
+    &.hidden { display: none; }
+    &.hanzi { height: @fntSizeHanzi * 1.5; }
+    &.pinyin { height: @fntSizePinyin * 1.5; }
+  }
+}
+.para {
+  display: inline-flex; flex-wrap: wrap; width: 100%;
+  cursor: text;
+  .noselect();
+  .word {
+    flex-grow: 0;
+    display: flex; flex-direction: column;
+    margin: 0 0 16px 0;
+    div {
+      display: inline-block; flex-grow: 0;
+      white-space: pre;
+      span {
+        display: inline-block; height: 100%;
+        &.sel { background-color: @selectionColor; }
+      }
+    }
+    .hanzi {
+      font-size: @fntSizeHanzi;  text-align: center;
+      height: @fntSizeHanzi * 1.5;
+    }
+    .pinyin {
+      height: @fntSizePinyin * 1.5;  text-align: left;
+    }
+  }
+}
