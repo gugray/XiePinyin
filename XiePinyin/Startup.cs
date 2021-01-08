@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Westwind.AspNetCore.LiveReload;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,7 +32,6 @@ namespace PYX
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddLiveReload();
             // MVC for serving pages and REST
             services.AddMvc(x =>
             {
@@ -45,8 +43,6 @@ namespace PYX
 
         public void Configure(IApplicationBuilder app, IHostApplicationLifetime appLife)
         {
-            app.UseLiveReload();
-            
             // Sign up to application shutdown so we can do proper cleanup
             //appLife.ApplicationStopping.Register(onApplicationStopping);
             // Static file options: inject caching info for all static files.
