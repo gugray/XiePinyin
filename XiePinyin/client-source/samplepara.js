@@ -60,11 +60,6 @@ module.exports = (function () {
     },
     {
       lead: [],
-      text: [{ hanzi: "APP", pinyin: "APP" }],
-      trail: [],
-    },
-    {
-      lead: [],
       text: [{ hanzi: "销", pinyin: "xiao1" }, { hanzi: "售", pinyin: "shou4" }],
       trail: [{ hanzi: "。", pinyin: "." }],
     },

@@ -30,6 +30,7 @@ module.exports = (function (elmHost) {
     // Hidden input field
     _elmHost.append(_elmHiddenInput);
     _elmHiddenInput.focus();
+    $(document).focus(() => _elmHiddenInput.focus());
     // Caret blinkety blink
     resetCaretBlinkie();
     // Mouse and keyboard handlers
@@ -101,13 +102,65 @@ module.exports = (function (elmHost) {
   }
 
   function handleLeft(ctrlKey, shiftKey) {
-    if (_sel.start == 0 && _sel.end == 0) return;
-    if (_sel.end != _sel.start) _sel.end = _sel.start;
-    else {
-      --_sel.start;
-      _sel.end = _sel.start;
+    // Moving one char at a time
+    if (!ctrlKey) {
+      // We have a selection and shift is not pressed: Selection gone, caret is at left of selection
+      if (_sel.end != _sel.start && !shiftKey) {
+        _sel.end = _sel.start;
+        _sel.caretAtStart = true;
+      }
+      // Caret at start of para: cannot go further
+      else if (_sel.start == 0) return;
+      // Shift not pressed: move caret left
+      else if (!shiftKey) {
+        --_sel.start;
+        _sel.end = _sel.start;
+        _sel.caretAtStart = true;
+      }
+      // Shift pressed: expand/shrink selection
+      else if (shiftKey) {
+        if (_sel.caretAtStart || _sel.start == _sel.end) {
+          --_sel.start;
+          _sel.caretAtStart = true;
+        }
+        else {
+          --_sel.end;
+          if (_sel.end == _sel.start) _sel.caretAtStart = true;
+        }
+      }
     }
-    _sel.caretAtStart = true;
+    updateSelection();
+  }
+
+  function handleRight(ctrlKey, shiftKey) {
+    const wordCount = _elmPara.find("div.hanzi>span").length;
+    // Moving one char at a time
+    if (!ctrlKey) {
+      // We have a selection and shift is not pressed: Selection gone, caret is at right of selection
+      if (_sel.end != _sel.start && !shiftKey) {
+        _sel.start = _sel.end;
+        _sel.caretAtStart = true;
+      }
+      // Caret at end of para: cannot go further
+      else if (_sel.end == wordCount - 1) return;
+      // Shift not pressed: move caret right
+      else if (!shiftKey) {
+        ++_sel.end;
+        _sel.start = _sel.end;
+        _sel.caretAtStart = true;
+      }
+      // Shift pressed: expand/shrink selection
+      else if (shiftKey) {
+        if (!_sel.caretAtStart || _sel.start == _sel.end) {
+          ++_sel.end;
+          _sel.caretAtStart = false;
+        }
+        else {
+          ++_sel.start;
+          if (_sel.end == _sel.start) _sel.caretAtStart = true;
+        }
+      }
+    }
     updateSelection();
   }
 
