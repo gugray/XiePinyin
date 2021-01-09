@@ -3,7 +3,8 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "http://localhost:54759"
+      "applicationUrl": "http://localhost:54759",
+      "sslPort": 0
     }
   },
   "profiles": {
@@ -16,6 +17,7 @@
     },
     "PYX": {
       "commandName": "Project",
+      "workingDirectory": "D:\\Development\\XiePinyin\\XiePinyin",
       "launchBrowser": true,
       "launchUrl": "http://localhost:1313",
       "environmentVariables": {

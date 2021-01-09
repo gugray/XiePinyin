@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.IO;
 
-namespace PYX.Controllers
+namespace XiePinyin.Site
 {
     [ResponseCache(Location = ResponseCacheLocation.None, NoStore = true)]
     public class IndexController : Controller

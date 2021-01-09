@@ -5,6 +5,7 @@
 @cursorColor: #606060;
 @borderColor: #efa151;
 @selectionColor: #f7edb4;
+@activeBgColor: #fcfaeb;
 
 * { box-sizing: border-box; }
 html { 
@@ -25,15 +26,12 @@ body { }
 
 input {
   // Fuck browsers
-  outline: none; border-radius: 0; border: 0; -webkit-appearance: none; -webkit-border-radius: 0px;
+  outline: none; border-radius: 0; border: 0; padding: 0;
+  -webkit-appearance: none; -webkit-border-radius: 0px; background-color: inherit;
   &:focus { outline: none; -webkit-box-shadow: none; box-shadow: none; }
-  font-family: inherit; background-color: inherit;
+  font-family: @fntBaseFamily; font-size: @fntSizePinyin; color: @textColor;
 }
-#hiddenInput {
-  border: 0; padding: 0; font-family: @fntBaseFamily; font-size: @fntSizePinyin;
-  position: absolute; top: 0; left: 0;
-  width: 0; height: 0;
-}
+#hiddenInput { position: absolute; top: 0; left: 0; width: 0; height: 0; }
 
 .doc {
   position: relative; width: 800px; margin: 0 auto; padding: 12px;
@@ -42,10 +40,12 @@ input {
   .caret {
     position: absolute; width: 2px; background-color: @cursorColor;
     &.hidden { display: none; }
+    &.frozen { background-color: #bababa; }
     &.hanzi { height: @fntSizeHanzi * 1.5; }
     &.pinyin { height: @fntSizePinyin * 1.5; }
   }
 }
+
 .para {
   display: inline-flex; flex-wrap: wrap; width: 100%;
   cursor: text;
@@ -68,6 +68,31 @@ input {
     }
     .pinyin {
       height: @fntSizePinyin * 1.5;  text-align: left;
+    }
+  }
+}
+
+.composer {
+  position: absolute; width: 300px; height: auto;
+  border: 1px solid @borderColor; background-color: @activeBgColor;
+  display: none; &.visible { display: block; }
+  top: 75px; left: 137px;
+  .inputarea {
+    width: 100%; position: relative; float: left;
+    padding: 5px;
+  }
+  input {
+    display: block; width: 100%; background-color: white; border: 1px solid @borderColor;
+    padding: 2px 5px;
+  }
+  .suggestions {
+    width: 100%; min-height: 40px; padding: 0 5px 5px 5px;
+    position: relative; float: left; cursor: default;
+    span {
+      display: inline-block; padding: 2px 5px 4px 5px;
+      border: 2px solid transparent;
+      &.sel { background-color: @selectionColor; }
+      &.focus { border: 2px dotted @borderColor; }
     }
   }
 }

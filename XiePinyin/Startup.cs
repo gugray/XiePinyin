@@ -7,10 +7,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace PYX
+using XiePinyin.Logic;
+
+namespace XiePinyin
 {
     public class Startup
     {
@@ -24,7 +24,7 @@ namespace PYX
             this.loggerFactory = loggerFactory;
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile("appsettings.json", optional: false)
                 .AddJsonFile("appsettings.devenv.json", optional: true)
                 .AddEnvironmentVariables();
             config = builder.Build();
@@ -39,6 +39,8 @@ namespace PYX
             }).AddRazorRuntimeCompilation();
             // Configuration singleton
             services.AddSingleton<IConfiguration>(sp => { return config; });
+            // Input conversion
+            services.AddSingleton(new Composer(config["sourcesFolder"]));
         }
 
         public void Configure(IApplicationBuilder app, IHostApplicationLifetime appLife)
@@ -50,22 +52,19 @@ namespace PYX
             {
                 OnPrepareResponse = (context) =>
                 {
-                    // Genuine static staff: tell browser to cache indefinitely
-                    bool toCache = context.Context.Request.Path.Value.StartsWith("/static/");
-                    toCache |= context.Context.Request.Path.Value.StartsWith("/prod-");
-                    if (toCache)
-                    {
-                        context.Context.Response.Headers["Cache-Control"] = "private, max-age=31536000";
-                        context.Context.Response.Headers["Expires"] = DateTime.UtcNow.AddYears(1).ToString("R");
-                    }
                     // For everything coming from "/files/**", disable caching
-                    else if (context.Context.Request.Path.Value.StartsWith("/files/"))
+                    if (context.Context.Request.Path.Value.StartsWith("/files/"))
                     {
                         context.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
                         context.Context.Response.Headers["Pragma"] = "no-cache";
                         context.Context.Response.Headers["Expires"] = "0";
                     }
-                    // The rest of the content is served by IndexController, which adds its own cache directive.
+                    // Cache everything else
+                    else
+                    {
+                        context.Context.Response.Headers["Cache-Control"] = "private, max-age=31536000";
+                        context.Context.Response.Headers["Expires"] = DateTime.UtcNow.AddYears(1).ToString("R");
+                    }
                 }
             };
             // Static files (JS, CSS etc.) served directly.
@@ -73,7 +72,7 @@ namespace PYX
             // Serve our (single) .cshtml file, and serve API requests.
             app.UseMvc(routes =>
             {
-                //routes.MapRoute("api", "api/{controller}/{action}/{*paras}", new { paras = "" });
+                routes.MapRoute("api-compose", "api/compose/{*query}", new { controller = "Compose", action="Get" });
                 //routes.MapRoute("files", "files/{name}", new { controller = "Files", action = "Get" });
                 routes.MapRoute("default", "{*paras}", new { controller = "Index", action = "Index", paras = "" });
             });

@@ -1,16 +1,19 @@
 ﻿"use strict";
 var $ = require("jquery");
 var para2dom = require("./para2dom");
+var composer = require("./composer");
 
 const htmlHanziCaret = '<div class="caret hanzi hidden">&nbsp;</div>';
 const htmlPinyinCaret = '<div class="caret pinyin hidden">&nbsp;</div>';
 const htmlHiddenInput = '<input type="text" id="hiddenInput" autofocus="autofocus"/>';
+const htmlComposer = '<div class="composer"></div>';
 
 module.exports = (function (elmHost) {
   var _elmHost = elmHost;
   var _elmHanziCaret = $(htmlHanziCaret);
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
+  var _elmComposer = $(htmlComposer);
   var _elmPara = para2dom([]);
   var _sel = {
     start: 0,
@@ -18,6 +21,7 @@ module.exports = (function (elmHost) {
     caretAtStart: false,
   };
   var _caretInterval = null;
+  var _composer = null;
 
   init();
   setContent([]);
@@ -27,34 +31,53 @@ module.exports = (function (elmHost) {
     _elmHost.empty();
     _elmHost.append(_elmHanziCaret);
     _elmHost.append(_elmPinyinCaret);
+
     // Hidden input field
     _elmHost.append(_elmHiddenInput);
     _elmHiddenInput.focus();
     $(document).focus(() => _elmHiddenInput.focus());
+    _elmHiddenInput.on("input", onHiddenInput);
+
+    // Composer
+    _elmHost.append(_elmComposer);
+    _composer = composer(_elmComposer);
+    _composer.closed(onComposerClosed);
+
     // Caret blinkety blink
-    resetCaretBlinkie();
+    setCaretBlinkie(true);
+
     // Mouse and keyboard handlers
     _elmHost.mousedown(onMouseDown);
     _elmHiddenInput.keydown(onKeyDown);
   }
 
-  function resetCaretBlinkie() {
+  function setCaretBlinkie(blinking) {
     if (_caretInterval) {
       clearInterval(_caretInterval);
       _caretInterval = null;
     }
-    _caretInterval = setInterval(function () {
-      if (_elmHanziCaret.hasClass("hidden")) {
-        _elmHanziCaret.removeClass("hidden");
-        _elmPinyinCaret.removeClass("hidden");
-      }
-      else {
-        _elmHanziCaret.addClass("hidden");
-        _elmPinyinCaret.addClass("hidden");
-      }
-    }, 500);
-    _elmHanziCaret.addClass("hidden");
-    _elmPinyinCaret.addClass("hidden");
+    if (blinking) {
+      _elmHanziCaret.removeClass("frozen");
+      _elmPinyinCaret.removeClass("frozen");
+      _caretInterval = setInterval(function () {
+        if (_elmHanziCaret.hasClass("hidden")) {
+          _elmHanziCaret.removeClass("hidden");
+          _elmPinyinCaret.removeClass("hidden");
+        }
+        else {
+          _elmHanziCaret.addClass("hidden");
+          _elmPinyinCaret.addClass("hidden");
+        }
+      }, 500);
+      _elmHanziCaret.removeClass("hidden");
+      _elmPinyinCaret.removeClass("hidden");
+    }
+    else {
+      _elmHanziCaret.removeClass("hidden");
+      _elmPinyinCaret.removeClass("hidden");
+      _elmHanziCaret.addClass("frozen");
+      _elmPinyinCaret.addClass("frozen");
+    }
   }
 
   function setContent(content) {
@@ -72,8 +95,26 @@ module.exports = (function (elmHost) {
     }
   }
 
+  var _suppressHiddenInfputChange = false;
+
+  function onHiddenInput() {
+    if (_suppressHiddenInfputChange) return;
+    var val = _elmHiddenInput.val();
+    _suppressHiddenInfputChange = true;
+    _elmHiddenInput.val("");
+    _suppressHiddenInfputChange = false;
+    _elmHiddenInput.prop("disabled", true);
+    setCaretBlinkie(false);
+    _composer.show(val);
+  }
+
+  function onComposerClosed(e) {
+    _elmHiddenInput.prop("disabled", false);
+    _elmHiddenInput.focus();
+    setCaretBlinkie(true);
+  }
+
   function onMouseDown(e) {
-    var i = 0;
   }
 
   function onKeyDown(e) {
@@ -130,6 +171,7 @@ module.exports = (function (elmHost) {
       }
     }
     updateSelection();
+    setCaretBlinkie(true);
   }
 
   function handleRight(ctrlKey, shiftKey) {
@@ -162,6 +204,7 @@ module.exports = (function (elmHost) {
       }
     }
     updateSelection();
+    setCaretBlinkie(true);
   }
 
   function updateSelection() {

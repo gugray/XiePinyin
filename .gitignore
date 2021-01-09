@@ -1,11 +1,6 @@
 ServiceAccountKey*
 
-_audio
-_data
-_work_prose
-_gushi
-_work*
-_materials
+_sources
 
 client-build
 **/wwwroot/bundle.*

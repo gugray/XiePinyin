@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace PYX
+namespace XiePinyin
 {
     public class Program
     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Encodings.Web;
 
-namespace PYX.Controllers
+namespace XiePinyin.Site
 {
     public class IndexModel
     {
