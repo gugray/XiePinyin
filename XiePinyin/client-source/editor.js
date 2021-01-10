@@ -109,6 +109,9 @@ module.exports = (function (elmHost) {
   }
 
   function onComposerClosed(e) {
+    if (e.result != null) {
+      alert(e.result.hanzi + " ~ " + e.result.pinyin);
+    }
     _elmHiddenInput.prop("disabled", false);
     _elmHiddenInput.focus();
     setCaretBlinkie(true);

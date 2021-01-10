@@ -1,17 +1,20 @@
 ﻿@fntBaseFamily: "Noto Sans", sans-serif;
 @fntSizePinyin: 18px;
 @fntSizeHanzi: 24px;
+@desktopColor: #f9f9f9;
 @textColor: #303030;
 @cursorColor: #606060;
+@lightCursorColor: #bababa;
 @borderColor: #efa151;
 @selectionColor: #f7edb4;
 @activeBgColor: #fcfaeb;
+@hoverBgColor: #fff8cc;
 
 * { box-sizing: border-box; }
 html { 
   border: 0; margin: 0; padding: 0; overflow-y: scroll;
   font-family: @fntBaseFamily; font-size: @fntSizePinyin; color: @textColor;
-  background-color: white;
+  background-color: @desktopColor;
 }
 body { }
 
@@ -34,13 +37,12 @@ input {
 #hiddenInput { position: absolute; top: 0; left: 0; width: 0; height: 0; }
 
 .doc {
-  position: relative; width: 800px; margin: 0 auto; padding: 12px;
-  min-height: 500px;
-  border: 1px solid @borderColor;
+  position: relative; width: 800px; margin: 0 auto; padding: 12px; min-height: 500px;
+  background-color: white; box-shadow: 0 0 0 1px #d1d1d152, 0 0 10px 0 #cccccc90;
   .caret {
     position: absolute; width: 2px; background-color: @cursorColor;
     &.hidden { display: none; }
-    &.frozen { background-color: #bababa; }
+    &.frozen { background-color: @lightCursorColor; }
     &.hanzi { height: @fntSizeHanzi * 1.5; }
     &.pinyin { height: @fntSizePinyin * 1.5; }
   }
@@ -81,18 +83,33 @@ input {
     width: 100%; position: relative; float: left;
     padding: 5px;
   }
-  input {
+  input#composer {
     display: block; width: 100%; background-color: white; border: 1px solid @borderColor;
     padding: 2px 5px;
+  }
+  input#composerHidden {
+    display: block; width: 0; height: 0; position: absolute; top: 0; left: 0; padding: 0; border: 0;
   }
   .suggestions {
     width: 100%; min-height: 40px; padding: 0 5px 5px 5px;
     position: relative; float: left; cursor: default;
+    max-height: 300px; overflow-y: auto;
+    font-size: @fntSizeHanzi;
     span {
       display: inline-block; padding: 2px 5px 4px 5px;
       border: 2px solid transparent;
-      &.sel { background-color: @selectionColor; }
+      &.sel, &.sel:hover { background-color: @selectionColor; }
       &.focus { border: 2px dotted @borderColor; }
+      &:hover { background-color: @hoverBgColor; }
+    }
+    &.info { 
+      font-size: @fntSizePinyin * 0.9; font-style: italic; 
+      span:hover { background-color: unset; }
+    }
+    &.error { color: #c3461d; }
+    &.loading { 
+      color: @lightCursorColor;
+      span.focus { border: 2px solid transparent; }
     }
   }
 }
