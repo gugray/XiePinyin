@@ -5,7 +5,7 @@ var EventTarget = require("./eventtarget");
 const widgetHtml = `
 <input id="composerHidden" type="text" disabled />
 <div class="inputarea"><input id="composer" type="text" disabled /></div>
-<div class="suggestions" data-pinyinPretty=""></div>
+<div class="suggestions" data-pinyinSylls=""></div>
 `;
 
 const htmlPlaceholder = "<span>Type pin1yin1 with tone marks.</span>"
@@ -47,7 +47,7 @@ module.exports = (function (elmHost) {
 
   function refreshSuggestions() {
     _elmSuggestions.addClass("loading");
-    _elmSuggestions.data("pinyinPretty", "");
+    _elmSuggestions.data("pinyinSylls", "");
     var prompt = (_elmInput.val());
     if (prompt == "") {
       _elmSuggestions.html(htmlPlaceholder);
@@ -62,10 +62,10 @@ module.exports = (function (elmHost) {
       _elmSuggestions.removeClass("loading");
       _elmSuggestions.removeClass("info");
       _elmSuggestions.html("");
-      if (data.pinyinPretty) _elmSuggestions.data("pinyinPretty", data.pinyinPretty);
+      if (data.pinyinSylls) _elmSuggestions.data("pinyinSylls", data.pinyinSylls.join(" "));
       for (var i = 0; i < data.words.length; ++i) {
         var elm = $("<span></span>");
-        elm.text(data.words[i]);
+        elm.text(data.words[i].join(" "));
         _elmSuggestions.append(elm);
       }
       var elm = $("<span></span>");
@@ -90,8 +90,10 @@ module.exports = (function (elmHost) {
     if (selectedText != null) {
       evt.result = {
         hanzi: selectedText,
-        pinyin: selectedText == _elmInput.val() ? selectedText : _elmSuggestions.data("pinyinPretty"),
+        pinyin: selectedText == _elmInput.val() ? selectedText : _elmSuggestions.data("pinyinSylls"),
       };
+      evt.result.hanzi = evt.result.hanzi.split(/(\s+)/).filter((e) => e.trim().length > 0);
+      evt.result.pinyin = evt.result.pinyin.split(/(\s+)/).filter((e) => e.trim().length > 0);
       if (withSpace) evt.withSpace = true;
       else evt.withSpace = false;
     }

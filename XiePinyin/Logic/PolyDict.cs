@@ -39,14 +39,19 @@ namespace XiePinyin.Logic
             }
         }
 
-        public List<string> Lookup(List<string> sylls, bool simp)
+        public List<List<string>> Lookup(List<string> sylls, bool simp)
         {
-            var res = new List<string>();
+            var res = new List<List<string>>();
             string pinyinStr = sylls[0];
             for (int i = 1; i < sylls.Count; ++i) pinyinStr += ' ' + sylls[i];
             var dict = simp ? dictSimp : dictTrad;
             if (!dict.ContainsKey(pinyinStr)) return res;
-            res.AddRange(dict[pinyinStr]);
+            foreach (var hanzi in dict[pinyinStr])
+            {
+                List<string> itm = new List<string>();
+                foreach (char c in hanzi) itm.Add(c.ToString());
+                res.Add(itm);
+            }
             return res;
         }
     }

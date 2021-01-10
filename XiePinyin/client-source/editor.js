@@ -1,6 +1,6 @@
 ﻿"use strict";
 var $ = require("jquery");
-var para2dom = require("./para2dom");
+var converter = require("./converter");
 var composer = require("./composer");
 
 const htmlHanziCaret = '<div class="caret hanzi hidden">&nbsp;</div>';
@@ -14,7 +14,7 @@ module.exports = (function (elmHost) {
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
   var _elmComposer = $(htmlComposer);
-  var _elmPara = para2dom([]);
+  var _elmPara = converter.para2dom([]);
   var _sel = {
     start: 0,
     end: 0,
@@ -81,7 +81,7 @@ module.exports = (function (elmHost) {
   }
 
   function setContent(content) {
-    _elmPara = para2dom(content);
+    _elmPara = converter.para2dom(content);
     _elmHost.find(".para").remove();
     _elmHost.append(_elmPara);
     _sel.start = _sel.end = 0;
@@ -93,6 +93,10 @@ module.exports = (function (elmHost) {
       _sel.end = 5;
       updateSelection();
     }
+  }
+
+  function getContent() {
+
   }
 
   var _suppressHiddenInfputChange = false;
@@ -109,12 +113,13 @@ module.exports = (function (elmHost) {
   }
 
   function onComposerClosed(e) {
-    if (e.result != null) {
-      alert(e.result.hanzi + " ~ " + e.result.pinyin);
-    }
     _elmHiddenInput.prop("disabled", false);
     _elmHiddenInput.focus();
     setCaretBlinkie(true);
+    replaceSel(e.result.hanzi, e.result.pinyin);
+    _sel.start += e.result.hanzi.length;
+    _sel.end = _sel.start;
+    updateSelection();
   }
 
   function onMouseDown(e) {
@@ -126,7 +131,16 @@ module.exports = (function (elmHost) {
     switch (e.keyCode) {
       //case 13: // Enter
       //case 27: // Esc
-      //case 32: // Space
+      case 8: // Backspace
+        if (_sel.end != _sel.start || _sel.start > 0) {
+          if (_sel.end == _sel.start) --_sel.start; 
+          replaceSel([], []);
+          handled = true;
+        }
+        break;
+      case 32: // Space
+        handled = true;
+        break;
       case 37: // Left Arrow
         handleLeft(e.ctrlKey, e.shiftKey);
         handled = true;
@@ -143,6 +157,19 @@ module.exports = (function (elmHost) {
       e.preventDefault();
       e.stopPropagation();
     }
+  }
+
+  function replaceSel(hanzi, pinyin) {
+    var cont = converter.dom2para(_elmPara, _sel.start, _sel.end);
+    var newWords = converter.replace(cont.words, cont.selStartWordIx, cont.selStartWordPos, cont.selEndWordIx, cont.selEndWordPos, hanzi, pinyin, false);
+    _elmPara = converter.para2dom(newWords);
+    _elmHost.find(".para").remove();
+    _elmHost.append(_elmPara);
+    var conLen = _elmPara.find(".word>.hanzi>span").length;
+    if (conLen <= _sel.start)
+      _sel.start = conLen - 1;
+    _sel.end = _sel.start;
+    updateSelection();
   }
 
   function handleLeft(ctrlKey, shiftKey) {

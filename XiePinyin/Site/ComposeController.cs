@@ -10,8 +10,8 @@ namespace XiePinyin.Site
     {
         public class ComposeResult
         {
-            public string PinyinPretty { get; set; }
-            public List<string> Words { get; set; }
+            public List<string> PinyinSylls { get; set; }
+            public List<List<string>> Words { get; set; }
         }
 
         readonly Composer composer;
@@ -23,11 +23,11 @@ namespace XiePinyin.Site
 
         public IActionResult Get(string query)
         {
-            string pinyinPretty;
-            var words = composer.Resolve(query, out pinyinPretty);
+            var pinyinSylls = new List<string>();
+            var words = composer.Resolve(query, out pinyinSylls);
             ComposeResult res = new ComposeResult
             {
-                PinyinPretty = pinyinPretty,
+                PinyinSylls = pinyinSylls,
                 Words = words,
             };
             return new JsonResult(res);

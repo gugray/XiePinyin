@@ -24,38 +24,26 @@ namespace XiePinyin.Logic
             polyDict = new PolyDict(Path.Combine(sourcesFolder, "cedict.u8"), pinyin);
         }
 
-        public List<string> Resolve(string pinyinInput, out string pinyinPretty)
+        public List<List<string>> Resolve(string pinyinInput, out List<string> pinyinSylls)
         {
-            var res = new List<string>();
-            var sylls = pinyin.SplitSyllables(pinyinInput.ToLowerInvariant());
-            if (sylls.Count == 1)
+            var res = new List<List<string>>();
+            pinyinSylls = pinyin.SplitSyllables(pinyinInput.ToLowerInvariant());
+            if (pinyinSylls.Count == 1)
             {
                 foreach (var r in charReadingsSimp.ReadingsList)
                 {
-                    if (r.Pinyin == sylls[0])
+                    if (r.Pinyin == pinyinSylls[0])
                     {
-                        res.Add(r.Char);
+                        var itm = new List<string>();
+                        itm.Add(r.Char);
+                        res.Add(itm);
                     }
                 }
-                pinyinPretty = pinyin.NumsToSurf(sylls[0]);
             }
             else
             {
-                res = polyDict.Lookup(sylls, true);
-                pinyinPretty = pinyin.NumsToSurf(sylls[0]);
-                if (res.Count == 0) pinyinPretty = null;
-                for (int i = 1; i < sylls.Count && pinyinPretty != null; ++i)
-                {
-                    string nextPretty = pinyin.NumsToSurf(sylls[i]);
-                    if (nextPretty != null)
-                    {
-                        if (vowels.IndexOf(sylls[i][0]) != -1) pinyinPretty += "'";
-                        pinyinPretty += nextPretty;
-                    }
-                    else pinyinPretty = null;
-                }
+                res = polyDict.Lookup(pinyinSylls, true);
             }
-            if (pinyinPretty != null) fixCasing(pinyinInput, pinyinPretty);
             return res;
         }
 
