@@ -13,22 +13,10 @@ jobs:
 
     - name: Check out repository
       uses: actions/checkout@v2
-      
-    - name: Fetch tags and master for GitVersion
-      run: |
-        git fetch --tags
-        git branch --create-reflog master origin/master
 
-    - name: GitVersion
-      id: gitversion  # step id used as reference for output values
-      uses: roryprimrose/rungitversion@v1
-      #with:
-      #  nocache: true
-      #  nofetch: true
-
-    - name: Write version to file
+    - name: Write version from REF to file
       working-directory: ./XiePinyin
-      run: 'echo "${{ steps.gitversion.outputs.MajorMinorPatch }}" > version.txt'
+      run: 'echo "${GITHUB_REF/refs\/tags\//}" >version.txt' 
 
     #- name: Update project version
     #  uses: roryprimrose/set-vs-sdk-project-version@v1
