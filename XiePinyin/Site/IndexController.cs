@@ -42,7 +42,7 @@ namespace XiePinyin.Site
             {
                 BaseUrl = baseUrl,
                 Rel = rel,
-                Ver = "v" + ver,
+                Ver = ver,
             };
             return View("/Index.cshtml", model);
         }
