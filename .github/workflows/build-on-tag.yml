@@ -1,0 +1,97 @@
+name: Build and publish
+
+on:
+  push:
+    # branches: [ master ]
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out repository
+      uses: actions/checkout@v2
+      
+    - name: Fetch tags and master for GitVersion
+      run: |
+        git fetch --tags
+        git branch --create-reflog master origin/master
+
+    - name: GitVersion
+      id: gitversion  # step id used as reference for output values
+      uses: roryprimrose/rungitversion@v1
+      with:
+        nocache: true
+        nofetch: true
+
+    - name: Update project version
+      uses: roryprimrose/set-vs-sdk-project-version@v1
+      with:
+        version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
+        informationalVersion: ${{ steps.gitversion.outputs.InformationalVersion }}
+
+    - name: Set up Node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 14
+
+    - name: Install Node dependencies
+      working-directory: ./XiePinyin
+      run: npm ci
+
+    - name: Run Gulp
+      working-directory: ./XiePinyin
+      run: gulp
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.1.301
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore
+
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+
+    - name: File system publish
+      run: dotnet publish -o ./dist-linux-x64 -c Release --self-contained true -r linux-x64
+
+    - name: ZIP output folder
+      run: zip -r dist-linux-x64.zip ./dist-linux-x64
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      id: upload_release_asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: dist-linux-x64.zip
+        asset_name: dist-linux-x64.zip
+        asset_content_type: application/zip 
+
+    - name: Invoke deployment hook
+      uses: distributhor/workflow-webhook@v1
+      env:
+        webhook_url: ${{ secrets.WEBHOOK_URL }}
+        webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
+        webhook_auth: ${{ secrets.WEBHOOK_AUTH }}
+        data: '{ "artifact_url": "${{ steps.upload_release_asset.outputs.browser_download_url }}", "secret": "${{ secrets.WEBHOOK_SECRET }}"  }'
+       

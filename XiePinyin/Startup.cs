@@ -27,6 +27,8 @@ namespace XiePinyin
                 .AddJsonFile("appsettings.json", optional: false)
                 .AddJsonFile("appsettings.devenv.json", optional: true)
                 .AddEnvironmentVariables();
+            string configPath = Environment.GetEnvironmentVariable("CONFIG");
+            if (!string.IsNullOrEmpty(configPath)) builder.AddJsonFile(configPath, optional: false);
             config = builder.Build();
         }
 

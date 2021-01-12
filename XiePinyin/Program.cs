@@ -12,8 +12,10 @@ namespace XiePinyin
     {
         public static void Main(string[] args)
         {
+            string port = Environment.GetEnvironmentVariable("PORT");
+            if (string.IsNullOrEmpty(port)) port = "1313";
             var host = new WebHostBuilder()
-               .UseUrls("http://0.0.0.0:1313")
+               .UseUrls("http://0.0.0.0:" + port)
                .UseKestrel()
                .UseContentRoot(Directory.GetCurrentDirectory())
                .ConfigureLogging(x => { })
