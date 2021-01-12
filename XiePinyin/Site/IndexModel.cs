@@ -12,10 +12,15 @@ namespace XiePinyin.Site
         /// Base URL
         /// </summary>
         public string BaseUrl;
+
         /// <summary>
         /// Relative URL.
         /// </summary>
         public string Rel;
 
+        /// <summary>
+        /// Three-digit version string
+        /// </summary>
+        public string Ver;
     }
 }

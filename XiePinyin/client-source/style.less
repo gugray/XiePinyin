@@ -12,16 +12,17 @@
 
 * { box-sizing: border-box; }
 html { 
-  border: 0; margin: 0; padding: 0; overflow-y: scroll;
+  border: 0; margin: 0; padding: 0; overflow-y: scroll; height: 100%;
   font-family: @fntBaseFamily; font-size: @fntSizePinyin; color: @textColor;
   background-color: @desktopColor;
 }
-body { }
+body { min-height: 100%; display: block; margin: 0; padding-top: 10px; }
+
+#version { position: absolute; bottom: 0; right: 0; font-size: 80%; color: @cursorColor; padding: 0 5px 5px 0; }
 
 .noselect {
   -webkit-touch-callout: none; /* iOS Safari */
   -webkit-user-select: none; /* Safari */
-  -khtml-user-select: none; /* Konqueror HTML */
   -moz-user-select: none; /* Old versions of Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
   user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
