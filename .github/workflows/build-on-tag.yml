@@ -29,8 +29,7 @@ jobs:
     - name: Update project version
       uses: roryprimrose/set-vs-sdk-project-version@v1
       with:
-        version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
-        informationalVersion: ${{ steps.gitversion.outputs.InformationalVersion }}
+        assemblyVersion: ${{ steps.gitversion.outputs.MajorMinorPatch }}
 
     - name: Set up Node
       uses: actions/setup-node@v1

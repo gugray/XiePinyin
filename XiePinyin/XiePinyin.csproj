@@ -1,8 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-  </PropertyGroup>
+		<AssemblyVersion>0.0.0.0</AssemblyVersion>
+	</PropertyGroup>
 
   <ItemGroup>
     <Folder Include="client-build\" />

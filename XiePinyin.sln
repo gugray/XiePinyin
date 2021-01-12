@@ -5,6 +5,11 @@ VisualStudioVersion = 16.0.30717.126
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XiePinyin", "XiePinyin\XiePinyin.csproj", "{036B12EE-3F54-46CA-B384-A2FADE4416DF}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{EE7A85D2-E248-49DA-A694-F2A8FC045392}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build-on-tag.yml = .github\workflows\build-on-tag.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
