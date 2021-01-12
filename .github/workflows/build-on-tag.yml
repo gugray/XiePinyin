@@ -22,9 +22,9 @@ jobs:
     - name: GitVersion
       id: gitversion  # step id used as reference for output values
       uses: roryprimrose/rungitversion@v1
-      with:
-        nocache: true
-        nofetch: true
+      #with:
+      #  nocache: true
+      #  nofetch: true
 
     - name: Update project version
       uses: roryprimrose/set-vs-sdk-project-version@v1
