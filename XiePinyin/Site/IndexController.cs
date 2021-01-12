@@ -21,15 +21,11 @@ namespace XiePinyin.Site
         static string getVersionString()
         {
             Assembly a = typeof(IndexController).GetTypeInfo().Assembly;
-            string fn = a.FullName;
-            int ix1 = fn.IndexOf("Version=") + "Version=".Length;
-            int ix2 = fn.IndexOf('.', ix1);
-            int ix3 = fn.IndexOf('.', ix2 + 1);
-            int ix4 = fn.IndexOf('.', ix3 + 1);
-            string strMajor = fn.Substring(ix1, ix2 - ix1);
-            string strMinor = fn.Substring(ix2 + 1, ix3 - ix2 - 1);
-            string strBuild = fn.Substring(ix3 + 1, ix4 - ix3 - 1);
-            return strMajor + "." + strMinor + "." + strBuild;
+            using (Stream s = a.GetManifestResourceStream("XiePinyin.version.txt"))
+            using (StreamReader sr = new StreamReader(s))
+            {
+                return sr.ReadLine();
+            }
         }
 
         /// <summary>

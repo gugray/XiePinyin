@@ -26,10 +26,14 @@ jobs:
       #  nocache: true
       #  nofetch: true
 
-    - name: Update project version
-      uses: roryprimrose/set-vs-sdk-project-version@v1
-      with:
-        assemblyVersion: ${{ steps.gitversion.outputs.MajorMinorPatch }}
+    - name: Write version to file
+      working-directory: ./XiePinyin
+      run: 'echo "${{ steps.gitversion.outputs.MajorMinorPatch }}" > version.txt'
+
+    #- name: Update project version
+    #  uses: roryprimrose/set-vs-sdk-project-version@v1
+    #  with:
+    #    assemblyVersion: ${{ steps.gitversion.outputs.MajorMinorPatch }}
 
     - name: Set up Node
       uses: actions/setup-node@v1
