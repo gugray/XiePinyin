@@ -55,8 +55,11 @@ module.exports = (function (elmHost) {
       return;
     }
     var req = $.ajax({
-      url: "/api/compose/" + encodeURIComponent(prompt),
-      type: "GET",
+      url: "/api/compose/",
+      type: "POST",
+      data: {
+        prompt: prompt,
+      }
     });
     req.done(function (data) {
       _elmSuggestions.removeClass("loading");
@@ -88,12 +91,13 @@ module.exports = (function (elmHost) {
     var evt = new Event('closed');
     evt.result = null;
     if (selectedText != null) {
-      evt.result = {
-        hanzi: selectedText,
-        pinyin: selectedText == _elmInput.val() ? selectedText : _elmSuggestions.data("pinyinSylls"),
-      };
-      evt.result.hanzi = evt.result.hanzi.split(/(\s+)/).filter((e) => e.trim().length > 0);
-      evt.result.pinyin = evt.result.pinyin.split(/(\s+)/).filter((e) => e.trim().length > 0);
+      var hanzi = selectedText;
+      var pinyin = selectedText == _elmInput.val() ? selectedText : _elmSuggestions.data("pinyinSylls");
+      hanzi = hanzi.split(/(\s+)/).filter((e) => e.trim().length > 0);
+      pinyin = pinyin.split(/(\s+)/).filter((e) => e.trim().length > 0);
+      evt.result = [];
+      for (var i = 0; i < hanzi.length; ++i)
+        evt.result.push({ hanzi: hanzi[i], pinyin: pinyin[i] });
       if (withSpace) evt.withSpace = true;
       else evt.withSpace = false;
     }

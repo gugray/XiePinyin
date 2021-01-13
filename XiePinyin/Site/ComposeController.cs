@@ -21,10 +21,10 @@ namespace XiePinyin.Site
             this.composer = composer;
         }
 
-        public IActionResult Get(string query)
+        public IActionResult Get([FromForm]string prompt)
         {
-            var pinyinSylls = new List<string>();
-            var words = composer.Resolve(query, out pinyinSylls);
+            List<string> pinyinSylls;
+            var words = composer.Resolve(prompt, out pinyinSylls);
             ComposeResult res = new ComposeResult
             {
                 PinyinSylls = pinyinSylls,

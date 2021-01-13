@@ -58,18 +58,19 @@ input {
     display: flex; flex-direction: column;
     margin: 0 0 16px 0;
     div {
-      display: inline-block; flex-grow: 0;
+      display: inline-flex; flex-grow: 0;
       white-space: pre;
       span {
         display: inline-block; height: 100%;
         &.sel { background-color: @selectionColor; }
+        &.pad { flex-grow: 1; }
       }
     }
-    .hanzi {
+    div.hanzi {
       font-size: @fntSizeHanzi;  text-align: center;
       height: @fntSizeHanzi * 1.5;
     }
-    .pinyin {
+    div.pinyin {
       height: @fntSizePinyin * 1.5;  text-align: left;
     }
   }

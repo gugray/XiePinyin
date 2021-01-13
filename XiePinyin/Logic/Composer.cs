@@ -27,12 +27,13 @@ namespace XiePinyin.Logic
         public List<List<string>> Resolve(string pinyinInput, out List<string> pinyinSylls)
         {
             var res = new List<List<string>>();
-            pinyinSylls = pinyin.SplitSyllables(pinyinInput.ToLowerInvariant());
-            if (pinyinSylls.Count == 1)
+            string pinyinInputLo = pinyinInput.ToLowerInvariant();
+            var loSylls = pinyin.SplitSyllables(pinyinInputLo);
+            if (loSylls.Count == 1)
             {
                 foreach (var r in charReadingsSimp.ReadingsList)
                 {
-                    if (r.Pinyin == pinyinSylls[0])
+                    if (r.Pinyin == loSylls[0])
                     {
                         var itm = new List<string>();
                         itm.Add(r.Char);
@@ -40,16 +41,23 @@ namespace XiePinyin.Logic
                     }
                 }
             }
-            else
-            {
-                res = polyDict.Lookup(pinyinSylls, true);
-            }
+            else res = polyDict.Lookup(loSylls, true);
+            pinyinSylls = getOrigSylls(pinyinInput, pinyinInputLo, loSylls);
             return res;
         }
 
-        void fixCasing(string pinyinInput, string pinyinPretty)
+        List<string> getOrigSylls(string orig, string lo, List<string> loSylls)
         {
-            // TO-DO
+            var res = new List<string>();
+            int ix = 0;
+            for (int i = 0; i < loSylls.Count; ++i)
+            {
+                ix = lo.IndexOf(loSylls[i], ix);
+                string origSyll = orig.Substring(ix, loSylls[i].Length);
+                ix += origSyll.Length;
+                res.Add(origSyll);
+            }
+            return res;
         }
 
         void readRanks(string fn, bool isSimp)

@@ -116,10 +116,9 @@ module.exports = (function (elmHost) {
     _elmHiddenInput.prop("disabled", false);
     _elmHiddenInput.focus();
     setCaretBlinkie(true);
-    replaceSel(e.result.hanzi, e.result.pinyin);
-    _sel.start += e.result.hanzi.length;
-    _sel.end = _sel.start;
-    updateSelection();
+    if (e.result) {
+      replaceSel(e.result, e.withSpace);
+    }
   }
 
   function onMouseDown(e) {
@@ -134,11 +133,12 @@ module.exports = (function (elmHost) {
       case 8: // Backspace
         if (_sel.end != _sel.start || _sel.start > 0) {
           if (_sel.end == _sel.start) --_sel.start; 
-          replaceSel([], []);
+          replaceSel([], false);
           handled = true;
         }
         break;
       case 32: // Space
+        replaceSel([], true);
         handled = true;
         break;
       case 37: // Left Arrow
@@ -159,16 +159,22 @@ module.exports = (function (elmHost) {
     }
   }
 
-  function replaceSel(hanzi, pinyin) {
-    var cont = converter.dom2para(_elmPara, _sel.start, _sel.end);
-    var newWords = converter.replace(cont.words, cont.selStartWordIx, cont.selStartWordPos, cont.selEndWordIx, cont.selEndWordPos, hanzi, pinyin, false);
-    _elmPara = converter.para2dom(newWords);
+  function replaceSel(chars, withSpace) {
+    var oldCont = converter.dom2para(_elmPara);
+    var newCont = [];
+    for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
+    for (var i = 0; i < chars.length; ++i) newCont.push(chars[i]);
+    if (withSpace) newCont.push({ hanzi: " ", pinyin: " " });
+    for (var i = _sel.end; i < oldCont.length; ++i) newCont.push(oldCont[i]);
+    _elmPara = converter.para2dom(newCont);
     _elmHost.find(".para").remove();
     _elmHost.append(_elmPara);
-    var conLen = _elmPara.find(".word>.hanzi>span").length;
-    if (conLen <= _sel.start)
-      _sel.start = conLen - 1;
+    _sel.start += chars.length;
+    if (withSpace) ++_sel.start;
     _sel.end = _sel.start;
+    _sel.caretAtStart = false;
+    updateSelection();
+
     updateSelection();
   }
 
@@ -205,7 +211,7 @@ module.exports = (function (elmHost) {
   }
 
   function handleRight(ctrlKey, shiftKey) {
-    const wordCount = _elmPara.find("div.hanzi>span").length;
+    const charCount = _elmPara.find("div.hanzi>span.x").length;
     // Moving one char at a time
     if (!ctrlKey) {
       // We have a selection and shift is not pressed: Selection gone, caret is at right of selection
@@ -214,7 +220,7 @@ module.exports = (function (elmHost) {
         _sel.caretAtStart = true;
       }
       // Caret at end of para: cannot go further
-      else if (_sel.end == wordCount - 1) return;
+      else if (_sel.end == charCount - 1) return;
       // Shift not pressed: move caret right
       else if (!shiftKey) {
         ++_sel.end;
@@ -243,8 +249,8 @@ module.exports = (function (elmHost) {
     var wordCount = _elmHost.find(".word").length;
     for (var i = 0; i < wordCount; ++i) {
       var elmWord = _elmHost.find(".word").eq(i);
-      var atomCount = elmWord.find(".hanzi>span").length;
-      for (var j = 0; j < atomCount; ++j) {
+      var spanCount = elmWord.find(".hanzi>span").length;
+      for (var j = 0; j < spanCount; ++j) {
         var elmHanzi = elmWord.find(".hanzi>span").eq(j);
         var elmPinyin = elmWord.find(".pinyin>span").eq(j);
         if (ix < _sel.start || ix >= _sel.end) {
@@ -267,7 +273,7 @@ module.exports = (function (elmHost) {
             pinyinCaretX = elmPinyin.offset().left + elmPinyin.width() - _elmHost.offset().left - 2;
           }
         }
-        ++ix;
+        if (elmHanzi.hasClass("x")) ++ix;
       }
     }
     _elmHanziCaret.css("left", hanziCaretX + "px");

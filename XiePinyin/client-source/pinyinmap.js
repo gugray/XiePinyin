@@ -434,10 +434,21 @@ module.exports = (function () {
   }
   sylls.sort((x, y) => y.length - x.length);
   var reStr = "(" + sylls.join("|") + ")([1-5])";
-  var re = new RegExp(reStr, "g");
+  var re = new RegExp(reStr, "gi");
 
-  function replacer(match, p1, p2) {
-    return pymap[p1][parseInt(p2) - 1];
+  function replacer(match, syll, tone) {
+    var disp = pymap[syll.toLowerCase()][parseInt(tone) - 1];
+    var firstUpper = true;
+    var allUpper = true;
+    for (var i = 0; i < syll.length; ++i) {
+      if (syll[i].toLowerCase() == syll[i]) {
+        if (i == 0) firstUpper = false;
+        allUpper = false;
+      }
+    }
+    if (allUpper) disp = disp.toUpperCase();
+    else if (firstUpper) disp = disp[0].toUpperCase() + disp.substr(1);
+    return disp;
   }
 
   function toDisplay(syll) {
