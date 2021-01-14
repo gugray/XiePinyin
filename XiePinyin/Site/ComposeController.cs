@@ -24,7 +24,7 @@ namespace XiePinyin.Site
         public IActionResult Get([FromForm]string prompt)
         {
             List<string> pinyinSylls;
-            var words = composer.Resolve(prompt, out pinyinSylls);
+            var words = composer.Resolve(prompt, false, out pinyinSylls);
             ComposeResult res = new ComposeResult
             {
                 PinyinSylls = pinyinSylls,

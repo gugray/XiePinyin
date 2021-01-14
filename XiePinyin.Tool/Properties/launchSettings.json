@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "XiePinyin.Tool": {
+      "commandName": "Project",
+      "workingDirectory": "D:\\Development\\XiePinyin"
+    }
+  }
+}

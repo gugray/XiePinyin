@@ -1,47 +1,48 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace XiePinyin.Logic
 {
     public class Composer
     {
         readonly Pinyin pinyin;
-        readonly Dictionary<string, int> ranksSimp = new Dictionary<string, int>();
-        readonly Dictionary<string, int> ranksTrad = new Dictionary<string, int>();
-        readonly CharReadings charReadingsSimp;
-        readonly CharReadings charReadingsTrad;
-        readonly PolyDict polyDict;
+        readonly List<CharReading> readingsSimp = new List<CharReading>();
+        readonly List<CharReading> readingsTrad = new List<CharReading>();
         const string vowels = "aeiou";
 
         public Composer(string sourcesFolder)
         {
-            readRanks(Path.Combine(sourcesFolder, "junda-freq.txt"), true);
-            readRanks(Path.Combine(sourcesFolder, "tsai-freq.txt"), false);
             pinyin = new Pinyin(Path.Combine(sourcesFolder, "pinyin.txt"));
-            charReadingsSimp = new CharReadings(Path.Combine(sourcesFolder, "Unihan_Readings.txt"), ranksSimp, pinyin);
-            charReadingsTrad = new CharReadings(Path.Combine(sourcesFolder, "Unihan_Readings.txt"), ranksTrad, pinyin);
-            polyDict = new PolyDict(Path.Combine(sourcesFolder, "cedict.u8"), pinyin);
+            JsonSerializer ser = new JsonSerializer();
+            using (StreamReader sr = new StreamReader(Path.Combine("wwwroot", "simp-map.json")))
+            {
+                readingsSimp = ser.Deserialize(sr, typeof(List<CharReading>)) as List<CharReading>;
+            }
+            using (StreamReader sr = new StreamReader(Path.Combine("wwwroot", "trad-map.json")))
+            {
+                readingsTrad = ser.Deserialize(sr, typeof(List<CharReading>)) as List<CharReading>;
+            }
         }
 
-        public List<List<string>> Resolve(string pinyinInput, out List<string> pinyinSylls)
+        public List<List<string>> Resolve(string pinyinInput, bool isSimp, out List<string> pinyinSylls)
         {
             var res = new List<List<string>>();
+            List<CharReading> readings = isSimp ? readingsSimp : readingsTrad;
             string pinyinInputLo = pinyinInput.ToLowerInvariant();
             var loSylls = pinyin.SplitSyllables(pinyinInputLo);
-            if (loSylls.Count == 1)
+            string loSyllsConcat = "";
+            for (int i = 0; i < loSylls.Count; ++i) { if (i != 0) loSyllsConcat += ' '; loSyllsConcat += loSylls[i]; }
+            foreach (var r in readings)
             {
-                foreach (var r in charReadingsSimp.ReadingsList)
+                if (r.Pinyin == loSyllsConcat)
                 {
-                    if (r.Pinyin == loSylls[0])
-                    {
-                        var itm = new List<string>();
-                        itm.Add(r.Char);
-                        res.Add(itm);
-                    }
+                    var itm = new List<string>();
+                    itm.Add(r.Hanzi);
+                    res.Add(itm);
                 }
             }
-            else res = polyDict.Lookup(loSylls, true);
             pinyinSylls = getOrigSylls(pinyinInput, pinyinInputLo, loSylls);
             return res;
         }
@@ -58,23 +59,6 @@ namespace XiePinyin.Logic
                 res.Add(origSyll);
             }
             return res;
-        }
-
-        void readRanks(string fn, bool isSimp)
-        {
-            string line;
-            using (var sr = new StreamReader(fn))
-            {
-                int i = 0;
-                while ((line = sr.ReadLine()) != null)
-                {
-                    if (line == "" || line.StartsWith("#")) continue;
-                    var parts = line.Split('\t');
-                    if (isSimp) ranksSimp[parts[1]] = i;
-                    else ranksTrad[parts[0]] = i;
-                    ++i;
-                }
-            }
         }
     }
 }
