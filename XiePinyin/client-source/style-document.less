@@ -1,24 +1,4 @@
-﻿@fntBaseFamily: "Noto Sans", sans-serif;
-@fntSizePinyin: 18px;
-@fntSizeHanzi: 24px;
-@desktopColor: #f9f9f9;
-@textColor: #303030;
-@cursorColor: #606060;
-@lightCursorColor: #bababa;
-@borderColor: #efa151;
-@selectionColor: #f7edb4;
-@activeBgColor: #fcfaeb;
-@hoverBgColor: #fff8cc;
-
-* { box-sizing: border-box; }
-html { 
-  border: 0; margin: 0; padding: 0; overflow-y: scroll; height: 100%;
-  font-family: @fntBaseFamily; font-size: @fntSizePinyin; color: @textColor;
-  background-color: @desktopColor;
-}
-body { min-height: 100%; display: block; margin: 0; padding-top: 10px; }
-
-#version { position: absolute; bottom: 0; right: 0; font-size: 80%; color: @cursorColor; padding: 0 5px 5px 0; }
+﻿@import "style-defines.less";
 
 .noselect {
   -webkit-touch-callout: none; /* iOS Safari */
@@ -37,8 +17,30 @@ input {
 }
 #hiddenInput { position: absolute; top: 0; left: 0; width: 0; height: 0; }
 
-.doc {
-  position: relative; width: 800px; margin: 0 auto; padding: 12px; min-height: 500px;
+.document {
+  position: absolute; height: 100%; width: 100%;
+  background-color: #fafafa;
+  .header {
+    height: 78px; border-bottom: 1px solid #ccc; background-color: white;
+    .title { padding: 5px 15px 0 15px; height: 36px; font-size: 110%; }
+    .commands { 
+      padding: 0 15px; height: 39px; cursor: default;
+      .group { position: relative; float: left; }
+      .item { 
+        margin-left: 2px; position: relative; float: left;
+        &:first-of-type { margin-left: -4px; }
+      }
+      .button {
+        padding: 2px 5px 4px 5px; border: 2px solid transparent;
+        &.sel, &.sel:hover { background-color: @selectionColor; }
+        &:hover { background-color: @hoverBgColor; }
+      }
+    }
+  }
+}
+
+.page {
+  position: relative; width: 800px; margin: 86px auto 24px auto; padding: 12px; min-height: 500px;
   background-color: white; box-shadow: 0 0 0 1px #d1d1d152, 0 0 10px 0 #cccccc90;
   .caret {
     position: absolute; width: 2px; background-color: @cursorColor;

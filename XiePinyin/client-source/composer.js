@@ -16,6 +16,7 @@ module.exports = (function (elmHost) {
   var _elmHiddenInput;
   var _elmSuggestions;
   var _evtTarget = new EventTarget();
+  var _inputType = null;
 
   init();
 
@@ -29,7 +30,8 @@ module.exports = (function (elmHost) {
     _elmSuggestions = _elmHost.find(".suggestions");
   }
 
-  function show(initialText) {
+  function show(initialText, inputType) {
+    _inputType = inputType;
     _elmInput.val(initialText);
     _elmHost.find("input").prop("disabled", false);
     _elmHost.addClass("visible");
@@ -59,6 +61,7 @@ module.exports = (function (elmHost) {
       type: "POST",
       data: {
         prompt: prompt,
+        isSimp: _inputType == "simp",
       }
     });
     req.done(function (data) {

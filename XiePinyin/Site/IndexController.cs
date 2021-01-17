@@ -35,9 +35,6 @@ namespace XiePinyin.Site
         public IActionResult Index(string paras)
         {
             string rel = paras == null ? "" : paras;
-            // Unknonwn path
-            if (rel != "") return StatusCode(404, "甚麼?");
-            // OK, return index
             IndexModel model = new IndexModel
             {
                 BaseUrl = baseUrl,

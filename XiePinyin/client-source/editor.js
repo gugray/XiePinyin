@@ -10,6 +10,7 @@ const htmlComposer = '<div class="composer"></div>';
 
 module.exports = (function (elmHost) {
   var _elmHost = elmHost;
+  var _inputType = "simp";
   var _elmHanziCaret = $(htmlHanziCaret);
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
@@ -95,6 +96,10 @@ module.exports = (function (elmHost) {
     }
   }
 
+  function setInputType(inputType) {
+    _inputType = inputType;
+  }
+
   function getContent() {
 
   }
@@ -109,7 +114,7 @@ module.exports = (function (elmHost) {
     _suppressHiddenInfputChange = false;
     _elmHiddenInput.prop("disabled", true);
     setCaretBlinkie(false);
-    _composer.show(val);
+    _composer.show(val, _inputType);
   }
 
   function onComposerClosed(e) {
@@ -284,5 +289,6 @@ module.exports = (function (elmHost) {
 
   return {
     setContent: setContent,
+    setInputType: setInputType,
   };
 });
