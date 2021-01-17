@@ -7,9 +7,13 @@
 
   <ItemGroup>
     <Compile Remove="client-build\**" />
+    <Compile Remove="client-vue-build\**" />
     <Content Remove="client-build\**" />
+    <Content Remove="client-vue-build\**" />
     <EmbeddedResource Remove="client-build\**" />
+    <EmbeddedResource Remove="client-vue-build\**" />
     <None Remove="client-build\**" />
+    <None Remove="client-vue-build\**" />
   </ItemGroup>
 
   <ItemGroup>

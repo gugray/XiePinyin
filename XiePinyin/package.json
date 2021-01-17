@@ -5,7 +5,7 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "vue-build": "./node_modules/.bin/vue-cli-service build --target lib --name xie-vue-lib --dest client-vue-build client-source/vue-components/vue-main.js"
   },
   "keywords": [],
   "author": "",
@@ -26,7 +26,11 @@
     "gulp-util": "^3.0.8",
     "object-assign": "^4.1.1",
     "vinyl-buffer": "^1.0.1",
-    "vinyl-source-stream": "^2.0.0"
+    "vinyl-source-stream": "^2.0.0",
+    "vue-custom-element": "^3.2.14",
+    "vue": "^2.6.12",
+    "vue-template-compiler": "^2.6.12",
+    "@vue/cli-service": "^4.5.10"
   },
   "dependencies": {
     "jquery": "^3.5.1",

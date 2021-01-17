@@ -3,6 +3,7 @@ ServiceAccountKey*
 _sources
 
 client-build
+client-vue-build
 **/wwwroot/bundle.*
 node_modules
 packages
