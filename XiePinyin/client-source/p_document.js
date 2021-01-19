@@ -4,51 +4,48 @@ var samplePara = require("./samplepara");
 
 const htmlPage = `
 <div class="document">
-  <div class="header">
-    <div class="title">
-      <div class="docTitle"><span>Sample document</span></div>
-    </div>
-    <div class="commands">
-      <div class="group grpInputType">
-        <div class="item button simp sel">简体</div>
-        <div class="item button trad">繁體</div>
-        <div class="item button alfa">Alpha</div>
-      </div>
-    </div>
-  </div>
+  <div class="header"></div>
   <div class="page"></div>
 </div>
 `;
 
 module.exports = (function (elmHost, path) {
   var _elmHost = elmHost;
+  var _header = null;
   var _editor = null;
+  var _state = {
+    inputType: "trad",
+  };
 
   init();
 
   function init() {
     _elmHost.empty();
     _elmHost.html(htmlPage);
-
-    // Commands
-    _elmHost.find(".grpInputType .button").click(onInputTypeClick);
+    _header = new Comps.EditorHeader({
+      target: _elmHost.find(".header")[0],
+      props: {
+        inputType: _state.inputType,
+      }
+    });
+    _header.$on("inputType", e => {
+      _state.inputType = e.detail.val;
+      _editor.setInputType(_state.inputType);
+    });
 
     _editor = require("./editor")(_elmHost.find(".page"));
     _editor.setContent(samplePara());
-    _editor.setInputType("simp");
+    _editor.setInputType(_state.inputType);
 
   }
 
-  function onInputTypeClick() {
-    _elmHost.find(".grpInputType .button").removeClass("sel");
-    $(this).addClass("sel");
-    if ($(this).hasClass("simp")) _editor.setInputType("simp");
-    else if ($(this).hasClass("trad")) _editor.setInputType("trad");
-    else if ($(this).hasClass("alfa")) _editor.setInputType("alfa");
+  function beforeLeave() {
+    _header.$destroy();
+    _header = null;
   }
 
   return {
-
+    beforeLeave: beforeLeave,
   };
 });
 

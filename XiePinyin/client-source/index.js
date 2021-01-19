@@ -31,20 +31,25 @@ window.theApp = (function () {
   }
 
   function navigate() {
+    // Leave current page
+    if (_page && _page.beforeLeave) _page.beforeLeave();
+    // Create new page
     var path = getPath();
     if (path == "") _page = startPage(_elmApp, path);
     else if (startsWith(path, "doc/")) _page = documentPage(_elmApp, path);
     else _page = fofPage(_elmApp, path);
   }
 
+  function loadScript(url) {
+    var liveReloadScript = document.createElement("script");
+    liveReloadScript.src = url;
+    document.body.appendChild(liveReloadScript);
+  }
+
   $(document).ready(function () {
 
     // Livereload if we're developing on localhost
-    if (isLocalhost()) {
-      var liveReloadScript = document.createElement("script");
-      liveReloadScript.src = "/livereload.js?host=localhost&port=35730";
-      document.body.appendChild(liveReloadScript);
-    }
+    if (isLocalhost()) loadScript("/livereload.js?host=localhost&port=35730");
 
     // Set up single-page navigation
     $(document).on('click', 'a.ajax', function () {

@@ -4,7 +4,7 @@ _sources
 
 client-build
 client-vue-build
-**/wwwroot/bundle.*
+**/wwwroot/bundle*.*
 node_modules
 packages
 bin

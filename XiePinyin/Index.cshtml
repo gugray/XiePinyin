@@ -12,9 +12,11 @@
   <link rel="stylesheet" href="/bundle.css" asp-append-version="true">
 </head>
 <body>
+  <div id="svelteApp"></div>
   <div id="app"></div>
   <div id="version">@Model.Ver</div>
 
+  <script src="/bundle-svelte.js" asp-append-version="true"></script>
   <script src="/bundle.js" asp-append-version="true"></script>
 </body>
 </html>
