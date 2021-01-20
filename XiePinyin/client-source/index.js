@@ -30,14 +30,19 @@ window.theApp = (function () {
     return i < 0;
   }
 
+  function navigateTo(path) {
+    history.pushState(null, null, "/" + path);
+    navigate();
+  }
+
   function navigate() {
     // Leave current page
     if (_page && _page.beforeLeave) _page.beforeLeave();
     // Create new page
     var path = getPath();
-    if (path == "") _page = startPage(_elmApp, path);
-    else if (startsWith(path, "doc/")) _page = documentPage(_elmApp, path);
-    else _page = fofPage(_elmApp, path);
+    if (path == "") _page = startPage(_elmApp, path, navigateTo);
+    else if (startsWith(path, "doc/")) _page = documentPage(_elmApp, path, navigateTo);
+    else _page = fofPage(_elmApp, path, navigateTo);
   }
 
   function loadScript(url) {
@@ -69,8 +74,7 @@ window.theApp = (function () {
   return {
     // Navigates to provided relative URL (no leading or trailing slash)
     navigate: function (path) {
-      history.pushState(null, null, "/" + path);
-      navigate();
+      navigateTo(path);
     },
   };
 

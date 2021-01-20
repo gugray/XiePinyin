@@ -39,6 +39,9 @@ module.exports = (function (elmHost) {
     $(document).focus(() => _elmHiddenInput.focus());
     _elmHiddenInput.on("input", onHiddenInput);
 
+
+    $("body").click(() => _elmHiddenInput.focus());
+
     // Composer
     _elmHost.append(_elmComposer);
     _composer = composer(_elmComposer);
@@ -88,20 +91,10 @@ module.exports = (function (elmHost) {
     _sel.start = _sel.end = 0;
     _sel.caretAtStart = false;
     updateSelection();
-    // DBG
-    if (content.length > 5) {
-      _sel.start = 2;
-      _sel.end = 5;
-      updateSelection();
-    }
   }
 
   function setInputType(inputType) {
     _inputType = inputType;
-  }
-
-  function getContent() {
-
   }
 
   var _suppressHiddenInfputChange = false;
@@ -162,6 +155,10 @@ module.exports = (function (elmHost) {
       e.preventDefault();
       e.stopPropagation();
     }
+  }
+
+  function getContent() {
+    return converter.dom2para(_elmPara);
   }
 
   function replaceSel(chars, withSpace) {
@@ -288,7 +285,8 @@ module.exports = (function (elmHost) {
   }
 
   return {
-    setContent: setContent,
-    setInputType: setInputType,
+    setContent,
+    getContent,
+    setInputType,
   };
 });

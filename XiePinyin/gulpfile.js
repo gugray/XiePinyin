@@ -11,8 +11,8 @@ const del = require('del');
 const browserify = require('browserify');
 const source = require('vinyl-source-stream');
 const buffer = require('vinyl-buffer');
-const webpack = require('webpack')
-const webpackStream = require('webpack-stream')
+const webpack = require('webpack');
+const webpackStream = require('webpack-stream');
 
 // Compile all .less files to .css
 gulp.task('less', function () {
@@ -45,7 +45,12 @@ gulp.task('svelte-pack', function () {
           {
             test: /\.svelte$/,
             exclude: /node_modules/,
-            use: 'svelte-loader'
+            use: [{
+              loader: 'svelte-loader',
+              options: {
+                preprocess: require('./svelte.config.js').preprocess
+              }
+            }]
           }
         ]
       },

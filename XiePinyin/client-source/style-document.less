@@ -22,25 +22,14 @@ input {
   background-color: #fafafa;
   .header {
     height: 78px; border-bottom: 1px solid #ccc; background-color: white;
-    .title { padding: 5px 15px 0 15px; height: 36px; font-size: 110%; }
-    .commands { 
-      padding: 0 15px; height: 39px; cursor: default;
-      .group { position: relative; float: left; }
-      .item { 
-        margin-left: 2px; position: relative; float: left;
-        &:first-of-type { margin-left: -4px; }
-      }
-      .button {
-        padding: 2px 5px 4px 5px; border: 2px solid transparent;
-        &.sel, &.sel:hover { background-color: @selectionColor; }
-        &:hover { background-color: @hoverBgColor; }
-      }
-    }
+  }
+  &.error {
+    article { top: 30%; margin-top: -70px; }
   }
 }
 
 .page {
-  position: relative; width: 800px; margin: 86px auto 24px auto; padding: 12px; min-height: 500px;
+  position: relative; width: 800px; margin: 20px auto 24px auto; padding: 12px; min-height: 500px;
   background-color: white; box-shadow: 0 0 0 1px #d1d1d152, 0 0 10px 0 #cccccc90;
   .caret {
     position: absolute; width: 2px; background-color: @cursorColor;
