@@ -1,4 +1,4 @@
-/// <binding BeforeBuild='default' Clean='clean' />
+/// <binding Clean='clean' />
 const gulp = require('gulp');
 const less = require('gulp-less');
 const path = require('path');

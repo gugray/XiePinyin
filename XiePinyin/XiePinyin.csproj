@@ -1,40 +1,46 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+	<PropertyGroup>
+		<TargetFramework>netcoreapp3.1</TargetFramework>
 		<AssemblyVersion>0.0.0.0</AssemblyVersion>
 	</PropertyGroup>
+	
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>XiePinyin.Test</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="client-build\**" />
-    <Compile Remove="client-vue-build\**" />
-    <Content Remove="client-build\**" />
-    <Content Remove="client-vue-build\**" />
-    <EmbeddedResource Remove="client-build\**" />
-    <EmbeddedResource Remove="client-vue-build\**" />
-    <None Remove="client-build\**" />
-    <None Remove="client-vue-build\**" />
-  </ItemGroup>
+	<ItemGroup>
+		<Compile Remove="client-build\**" />
+		<Compile Remove="client-vue-build\**" />
+		<Content Remove="client-build\**" />
+		<Content Remove="client-vue-build\**" />
+		<EmbeddedResource Remove="client-build\**" />
+		<EmbeddedResource Remove="client-vue-build\**" />
+		<None Remove="client-build\**" />
+		<None Remove="client-vue-build\**" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Remove="version.txt" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Remove="version.txt" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="version.txt" />
-  </ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="version.txt" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\" />
-  </ItemGroup>
+	<ItemGroup>
+		<Folder Include="wwwroot\" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<None Include="appsettings.devenv.json" CopyToPublishDirectory="Never" />
-	</ItemGroup>	
-	
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="3.1.10" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-  </ItemGroup>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="3.1.10" />
+		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+	</ItemGroup>
 
 </Project>
