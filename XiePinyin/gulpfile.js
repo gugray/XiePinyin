@@ -1,4 +1,4 @@
-/// <binding Clean='clean' />
+/// <binding />
 const gulp = require('gulp');
 const less = require('gulp-less');
 const path = require('path');
@@ -8,6 +8,7 @@ const livereload = require('gulp-livereload');
 const minifyCSS = require('gulp-minify-css');
 const sourcemaps = require('gulp-sourcemaps');
 const del = require('del');
+const jasmine = require('gulp-jasmine');
 const browserify = require('browserify');
 const source = require('vinyl-source-stream');
 const buffer = require('vinyl-buffer');
@@ -58,6 +59,12 @@ gulp.task('svelte-pack', function () {
     }, webpack))
     .pipe(gulp.dest('./wwwroot/'))
     .pipe(livereload());
+});
+
+// Test JS
+gulp.task('test', function () {
+  return gulp.src('./client-source/test/*.js')
+    .pipe(jasmine());
 });
 
 // Browserify scripts

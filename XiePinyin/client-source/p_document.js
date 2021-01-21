@@ -1,6 +1,6 @@
 ﻿"use strict";
 var $ = require("jquery");
-var samplePara = require("./samplepara");
+var samplePara = require("./editor/samplepara");
 var localdocdata = require("./localdocdata");
 
 const htmlPage = `
@@ -70,7 +70,7 @@ module.exports = (function (elmHost, path, navigateTo) {
       _navigateTo("");
     });
 
-    _editor = require("./editor")(_elmHost.find(".page"));
+    _editor = require("./editor/editor")(_elmHost.find(".page"));
     _editor.setContent(_content);
     _editor.setInputType(_state.inputType);
   }

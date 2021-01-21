@@ -1,6 +1,6 @@
 ﻿"use strict";
 var $ = require("jquery");
-var EventTarget = require("./eventtarget");
+var EventTarget = require("../eventtarget");
 
 const widgetHtml = `
 <input id="composerHidden" type="text" disabled />

@@ -56,8 +56,31 @@ namespace XiePinyin.Test
         {
             var csa = fromFriendlyStr(csaStr);
             var csb = fromFriendlyStr(csbStr);
-            var csRes = csa * csb;
+            var csRes = ChangeSet.Compose(csa, csb);
             Assert.AreEqual(csResStr, toFriendlyStr(csRes));
+        }
+
+        [TestCase("8>1,s,i,7", "8>1,a,x,2", "8>1,a,s,i,x")]
+        [TestCase("8>0,1,s,i,7", "8>0,e,i,x,6,7", "8>0,e,i,x,s,i,7")]
+        [TestCase("8>0,1,s,i,7", "8>0,e,6,o,w", "8>0,e,s,i,o,w")]
+        public void Merge_Correct(string csaStr, string csbStr, string csResStr)
+        {
+            var csa = fromFriendlyStr(csaStr);
+            var csb = fromFriendlyStr(csbStr);
+            var csM1 = ChangeSet.Merge(csa, csb);
+            var csM2 = ChangeSet.Merge(csb, csa);
+            Assert.AreEqual(csResStr, toFriendlyStr(csM1));
+            Assert.AreEqual(csResStr, toFriendlyStr(csM2));
+        }
+
+        [TestCase("8>0,e,6,o,w", "8>0,1,s,i,7", "5>0,1,s,i,3,4")]
+        [TestCase("8>0,1,s,i,7", "8>0,e,6,o,w", "5>0,e,2,3,o,w")]
+        public void Follow_Correct(string csaStr, string csbStr, string csResStr)
+        {
+            var csa = fromFriendlyStr(csaStr);
+            var csb = fromFriendlyStr(csbStr);
+            var csF = ChangeSet.Follow(csa, csb);
+            Assert.AreEqual(csResStr, toFriendlyStr(csF));
         }
     }
 }
