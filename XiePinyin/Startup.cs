@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 
 using XiePinyin.Logic;
+using XiePinyin.Site;
 
 namespace XiePinyin
 {
@@ -43,6 +44,13 @@ namespace XiePinyin
             services.AddSingleton<IConfiguration>(sp => { return config; });
             // Input conversion
             services.AddSingleton(new Composer(config["sourcesFolder"]));
+
+            var docJuggler = new DocumentJuggler();
+            var connMgr = new ConnectionManager(docJuggler);
+            docJuggler.Broadcaster = connMgr;
+            services.AddSingleton(docJuggler);
+            services.AddSingleton(connMgr);
+            services.AddSingleton<IHostedService, HeartbeatService>();
         }
 
         public void Configure(IApplicationBuilder app, IHostApplicationLifetime appLife)
@@ -71,6 +79,18 @@ namespace XiePinyin
             };
             // Static files (JS, CSS etc.) served directly.
             app.UseStaticFiles(sfo);
+
+            WebSocketMiddlewareOptions wsmo = new Site.WebSocketMiddlewareOptions
+            {
+                AllowedOrigins = new HashSet<string>(),
+                SendSegmentSize = 4 * 1024,
+                ReceivePayloadBufferSize = 4 * 1024,
+            };
+            var wsao = config["webSocketAllowedOrigins"];
+            foreach (var x in wsao.Split(',')) wsmo.AllowedOrigins.Add(x.Trim());
+            app.UseWebSockets().MapWebSocketConnections("/sock", wsmo);
+
+
             // Serve our (single) .cshtml file, and serve API requests.
             app.UseMvc(routes =>
             {

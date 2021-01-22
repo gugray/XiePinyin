@@ -1,5 +1,6 @@
 ﻿"use strict";
 var $ = require("jquery");
+var socketPage = require("./p_socket");
 var documentPage = require("./p_document");
 var startPage = require("./p_start");
 var fofPage = require("./p_404");
@@ -42,6 +43,7 @@ window.theApp = (function () {
     var path = getPath();
     if (path == "") _page = startPage(_elmApp, path, navigateTo);
     else if (startsWith(path, "doc/")) _page = documentPage(_elmApp, path, navigateTo);
+    else if (path == "s") _page = socketPage(_elmApp, path, navigateTo);
     else _page = fofPage(_elmApp, path, navigateTo);
   }
 
