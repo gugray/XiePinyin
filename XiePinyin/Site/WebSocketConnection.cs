@@ -33,9 +33,10 @@ namespace XiePinyin.Site
             }
         }
 
-        public async Task CloseAsync(string statusDescription)
+        public async Task CloseIfNotClosedAsync(string statusDescription)
         {
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
+            if (ws.State != WebSocketState.Closed)
+                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
 
         public async Task ReceiveMessagesUntilCloseAsync()
@@ -55,7 +56,7 @@ namespace XiePinyin.Site
                 CloseStatus = webSocketReceiveResult.CloseStatus.Value;
                 CloseStatusDescription = webSocketReceiveResult.CloseStatusDescription;
             }
-            catch (WebSocketException wsex) when (wsex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
+            catch //(WebSocketException wsex) when (wsex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
             { }
         }
 

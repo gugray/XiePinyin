@@ -22,6 +22,18 @@ namespace XiePinyin.Logic
             return res;
         }
 
+        public static ChangeSet FromJson(string json)
+        {
+            // TO-DO
+            return null;
+        }
+
+        public string SerializeJson()
+        {
+            // TO-DO
+            return "change";
+        }
+
         public bool IsValid()
         {
             if (LengthAfter != Items.Count) return false;

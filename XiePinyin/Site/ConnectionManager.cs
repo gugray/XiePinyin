@@ -8,7 +8,7 @@ namespace XiePinyin.Site
 {
     internal class ConnectionManager : IChangeBroadcaster
     {
-        private class ManagedConnection
+        class ManagedConnection
         {
             public WebSocketConnection WSC;
             public DateTime LastActiveUtc = DateTime.UtcNow;
@@ -28,7 +28,10 @@ namespace XiePinyin.Site
             lock (conns)
             {
                 conns.Add(new ManagedConnection { WSC = wsc });
-                wsc.MessageReceived += async (sender, msg) => await messageFrom(wsc, msg);
+                wsc.MessageReceived += async (sender, msg) => {
+                    try { await messageFrom(wsc, msg); }
+                    catch { await wsc.CloseIfNotClosedAsync("We messed up"); }
+                };
             }
         }
 
@@ -42,22 +45,24 @@ namespace XiePinyin.Site
             }
             if (mc == null)
             {
-                await wsc.CloseAsync("Where did this websocket connection come from?");
+                await wsc.CloseIfNotClosedAsync("Where did this websocket connection come from?");
                 return;
             }
+            // Diagnostic: see what happens when message handling code throws
+            if (msg == "BOO") throw new Exception("up");
             // Client announcing their session key as the first message
             if (msg.StartsWith("SESSIONKEY "))
             {
                 if (mc.SessionKey != null)
                 {
-                    await wsc.CloseAsync("Client already sent their session key");
+                    await wsc.CloseIfNotClosedAsync("Client already sent their session key");
                     return;
                 }
                 var sessionKey = msg.Substring(11);
-                var headStr = docJuggler.OpenSession(sessionKey);
+                var headStr = docJuggler.StartSession(sessionKey);
                 if (headStr == null)
                 {
-                    await wsc.CloseAsync("We're not expecting a session with this key");
+                    await wsc.CloseIfNotClosedAsync("We're not expecting a session with this key");
                     return;
                 }
                 mc.SessionKey = sessionKey;
@@ -67,19 +72,27 @@ namespace XiePinyin.Site
             // Anything else: client must be past sessionkey check
             if (mc.SessionKey == null)
             {
-                await wsc.CloseAsync("Don't talk until you've announced your session key");
+                await wsc.CloseIfNotClosedAsync("Don't talk until you've announced your session key");
                 return;
             }
-            // Just a keepalive ping
-            if (msg == "PING") return;
+            // Just a keepalive ping: see if session is still open?
+            if (msg == "PING")
+            {
+                if (!docJuggler.IsSessionOpen(mc.SessionKey))
+                    await wsc.CloseIfNotClosedAsync("This session has expired; you need to type sometimes, you know");
+                return;
+            }
             // Client announced a change
             if (msg.StartsWith("CHANGE "))
             {
-                docJuggler.ChangeReceived(mc.SessionKey, msg.Substring(7));
+                int ix = msg.IndexOf(' ', 7);
+                int revId = int.Parse(msg.Substring(7, ix - 7 - 1));
+                if (!docJuggler.ChangeReceived(mc.SessionKey, revId, msg.Substring(ix + 1)))
+                    await wsc.CloseIfNotClosedAsync("We don't like this change; your session might have expired, or the doc may be gone");
                 return;
             }
             // Anything else: No.
-            await wsc.CloseAsync("You shouldn't have said that");
+            await wsc.CloseIfNotClosedAsync("You shouldn't have said that");
         }
 
         public void RemoveConnection(Guid connId)
@@ -113,15 +126,19 @@ namespace XiePinyin.Site
                 foreach (var x in conns)
                 {
                     if (utcNow.Subtract(x.LastActiveUtc) > TimeSpan.FromMinutes(10))
-                        tasks.Add(x.WSC.CloseAsync("Haven't heard from your in a long time"));
+                        tasks.Add(x.WSC.CloseIfNotClosedAsync("Haven't heard from your in a long time"));
                 }
             }
             return Task.WhenAll(tasks);
         }
 
-        public async void SendToKeysAsync(List<string> sessionKeys, string change)
+        public void SendToKeysAsync(string sourceSessionKey, int clientRevisionId, List<string> sessionKeys, string change)
         {
-            throw new NotImplementedException();
+            // TO-DO: Implement this
+            // Also, this must not be a plain send:
+            // - internal queue needed
+            // - this function only enqueues message.
+            // Maybe move this to heartbeat?
         }
     }
 }

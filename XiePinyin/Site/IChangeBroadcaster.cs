@@ -7,6 +7,6 @@ namespace XiePinyin.Site
 {
     interface IChangeBroadcaster
     {
-        void SendToKeysAsync(List<string> sessionKeys, string change);
+        void SendToKeysAsync(string sourceSessionKey, int clientRevisionId, List<string> sessionKeys, string change);
     }
 }

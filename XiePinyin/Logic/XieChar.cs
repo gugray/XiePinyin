@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace XiePinyin.Logic
 {
     [DebuggerDisplay("{DebugStr}")]
     sealed class XieChar : IEquatable<XieChar>
     {
+        [JsonProperty("hanzi")]
         public readonly string Hanzi;
+        [JsonProperty("pinyin")]
         public readonly string Pinyin;
 
         public XieChar(string hanzi, string pinyin)
