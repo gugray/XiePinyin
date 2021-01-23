@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace XiePinyin.Site
 {
-    interface IChangeBroadcaster
+    public interface IChangeBroadcaster
     {
         void SendToKeysAsync(string sourceSessionKey, int clientRevisionId, List<string> sessionKeys, string change);
     }

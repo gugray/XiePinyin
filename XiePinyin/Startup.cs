@@ -15,9 +15,10 @@ namespace XiePinyin
 {
     public class Startup
     {
-        private readonly IWebHostEnvironment env;
-        private readonly ILoggerFactory loggerFactory;
-        private readonly IConfigurationRoot config;
+        readonly IWebHostEnvironment env;
+        readonly ILoggerFactory loggerFactory;
+        readonly IConfigurationRoot config;
+        Broadcaster broadcaster;
 
         public Startup(IWebHostEnvironment env, ILoggerFactory loggerFactory)
         {
@@ -36,10 +37,7 @@ namespace XiePinyin
         public void ConfigureServices(IServiceCollection services)
         {
             // MVC for serving pages and REST
-            services.AddMvc(x =>
-            {
-                x.EnableEndpointRouting = false;
-            }).AddRazorRuntimeCompilation();
+            services.AddMvc(x => { x.EnableEndpointRouting = true; }).AddRazorRuntimeCompilation();
             // Configuration singleton
             services.AddSingleton<IConfiguration>(sp => { return config; });
             // Input conversion
@@ -47,14 +45,16 @@ namespace XiePinyin
 
             var docJuggler = new DocumentJuggler();
             var connMgr = new ConnectionManager(docJuggler);
-            docJuggler.Broadcaster = connMgr;
+            broadcaster = new Broadcaster(connMgr);
+            docJuggler.Broadcaster = broadcaster;
             services.AddSingleton(docJuggler);
             services.AddSingleton(connMgr);
-            services.AddSingleton<IHostedService, HeartbeatService>();
+            services.AddSingleton(broadcaster);
         }
 
         public void Configure(IApplicationBuilder app, IHostApplicationLifetime appLife)
         {
+            appLife.ApplicationStopping.Register(onAppStopping);
             // Sign up to application shutdown so we can do proper cleanup
             //appLife.ApplicationStopping.Register(onApplicationStopping);
             // Static file options: inject caching info for all static files.
@@ -90,14 +90,20 @@ namespace XiePinyin
             foreach (var x in wsao.Split(',')) wsmo.AllowedOrigins.Add(x.Trim());
             app.UseWebSockets().MapWebSocketConnections("/sock", wsmo);
 
-
+            app.UseRouting();
             // Serve our (single) .cshtml file, and serve API requests.
-            app.UseMvc(routes =>
+            app.UseEndpoints(endpoints =>
             {
-                routes.MapRoute("api-compose", "api/compose/{*query}", new { controller = "Compose", action="Get" });
-                //routes.MapRoute("files", "files/{name}", new { controller = "Files", action = "Get" });
-                routes.MapRoute("default", "{*paras}", new { controller = "Index", action = "Index", paras = "" });
+                endpoints.MapControllerRoute("api-compose", "api/compose/{*query}", new { controller = "Compose", action = "Get" });
+                endpoints.MapControllerRoute("api-doc", "api/doc/{action}/{*paras}", new { controller = "Document", paras = "" });
+                endpoints.MapControllerRoute("default", "{*paras}", new { controller = "Index", action = "Index", paras = "" });
+                //routes.MapRoute("default", "{*paras}", new { controller = "Index", action = "Index", paras = "" });
             });
+        }
+
+        private void onAppStopping()
+        {
+            if (broadcaster != null) broadcaster.Shutdown();
         }
     }
 }

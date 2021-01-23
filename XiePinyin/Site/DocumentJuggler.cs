@@ -7,7 +7,7 @@ using XiePinyin.Logic;
 
 namespace XiePinyin.Site
 {
-    class DocumentJuggler
+    public class DocumentJuggler
     {
         class Session
         {
@@ -55,6 +55,19 @@ namespace XiePinyin.Site
                 docs.Add(new Document(docId, name));
             }
             return docId;
+        }
+
+        public void DeleteDocument(string docId)
+        {
+            lock (lockObject)
+            {
+                var doc = docs.Find(x => x.DocId == docId);
+                if (doc == null) return;
+                docs.Remove(doc);
+                var sessionsToDel = new List<Session>();
+                foreach (var x in sessions) if (x.DocId == docId) sessionsToDel.Add(x);
+                foreach (var x in sessionsToDel) sessions.Remove(x);
+            }
         }
 
         public string RequestSession(string docId)

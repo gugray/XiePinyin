@@ -13,7 +13,7 @@ function numToChar(num) {
 
 export function getRandomId() {
   let x = getRandomInt(0, 2147483647);
-  console.log(x);
+  //console.log(x);
   let res = [numToChar(x % 52)];
   x /= 52;
   res.unshift(String.fromCharCode((x % 10) + '0'.charCodeAt(0)));

@@ -1,7 +1,8 @@
 ﻿"use strict";
 var $ = require("jquery");
 var samplePara = require("./editor/samplepara");
-var localdocdata = require("./localdocdata");
+var localDocData = require("./localdocdata");
+var onlineDocData = require("./onlinedocdata");
 
 const htmlPage = `
 <div class="document">
@@ -10,13 +11,13 @@ const htmlPage = `
 </div>
 `;
 
-const htmlNoSuchDoc = `
+const htmlOpenFail = `
 <div class="document error">
   <article>
-    <h1>Document not found</h1>
+    <h1>Failed to open document</h1>
     <p>
-      I'm sorry; this document does not seem to exist.<br/>
-      <i>Let's go back to the <a href="/" class="ajax">start page</a>.</i>
+      <span class="explanation">I'm sorry; this document does not seem to exist.</span><br/>
+      <i>Let's go back to the <a href="/" class="spa">start page</a>.</i>
     </p>
   </article>
 </div>
@@ -29,8 +30,8 @@ module.exports = (function (elmHost, path, navigateTo) {
   var _editor = null;
   var _id = path.replace("doc/local-", "").replace("doc/", "");
   var _local = path.startsWith("doc/local-");
-  var _docData = localdocdata(_id);
-  var _content = samplePara();
+  var _docData = null;
+  var _content = null;
   var _state = {
     inputType: "simp",
   };
@@ -38,17 +39,54 @@ module.exports = (function (elmHost, path, navigateTo) {
   loadDoc();
 
   function loadDoc() {
+    // Sample document: hard-wired data
     if (_id == "sample") {
+      _content = samplePara();
       init();
       return;
     }
-    _content = _docData.getContent();
-    if (_content) {
-      init();
-      return;
+    // Local document: Get from local store
+    if (_local) {
+      _docData = localDocData(_id);
+      _content = _docData.getContent();
+      if (_content) {
+        init();
+        return;
+      }
     }
-    _elmHost.empty();
-    _elmHost.html(htmlNoSuchDoc);
+    // Retrieve online document
+    var req = $.ajax({
+      url: "/api/doc/open/",
+      type: "GET",
+      data: {
+        docId: _id,
+      }
+    });
+    req.done(function (data) {
+      if (data.result != "OK") {
+        _elmHost.empty();
+        _elmHost.html(htmlOpenFail);
+        _elmHost.find(".explanation").text("Unexpected response from server.");
+        return;
+      }
+      _docData = onlineDocData(data.data);
+      _docData.startSession(function (error) {
+        if (error) {
+          _elmHost.empty();
+          _elmHost.html(htmlOpenFail);
+          _elmHost.find(".explanation").text("Failed to start session; the server said: " + error);
+        }
+        else {
+          _content = _docData.getContent();
+          init();
+        }
+      });
+    });
+    req.fail(function () {
+      _elmHost.empty();
+      _elmHost.html(htmlOpenFail);
+      _elmHost.find(".explanation").text("The server returned an error. Most likely the document no longer exists.");
+    });
   }
 
   function init() {
@@ -76,6 +114,7 @@ module.exports = (function (elmHost, path, navigateTo) {
   }
 
   function beforeLeave() {
+    if (_docData.closeSession) _docData.closeSession();
     _header.$destroy();
     _header = null;
   }

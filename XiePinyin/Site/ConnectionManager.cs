@@ -6,7 +6,7 @@ using System.Collections.Concurrent;
 
 namespace XiePinyin.Site
 {
-    internal class ConnectionManager : IChangeBroadcaster
+    internal class ConnectionManager
     {
         class ManagedConnection
         {
@@ -59,14 +59,14 @@ namespace XiePinyin.Site
                     return;
                 }
                 var sessionKey = msg.Substring(11);
-                var headStr = docJuggler.StartSession(sessionKey);
-                if (headStr == null)
+                var startStr = docJuggler.StartSession(sessionKey);
+                if (startStr == null)
                 {
                     await wsc.CloseIfNotClosedAsync("We're not expecting a session with this key");
                     return;
                 }
                 mc.SessionKey = sessionKey;
-                await wsc.SendAsync("HEAD " + headStr, CancellationToken.None);
+                await wsc.SendAsync("HELLO " + startStr, CancellationToken.None);
                 return;
             }
             // Anything else: client must be past sessionkey check
@@ -106,13 +106,13 @@ namespace XiePinyin.Site
             if (mc != null && mc.SessionKey != null) docJuggler.SessionClosed(mc.SessionKey);
         }
 
-        public Task BeepToAllAsync(CancellationToken cancellationToken)
+        public Task BeepToAllAsync()
         {
             List<Task> tasks = new List<Task>();
             lock (conns)
             {
                 foreach (var x in conns)
-                    tasks.Add(x.WSC.SendAsync("BEEP", cancellationToken));
+                    tasks.Add(x.WSC.SendAsync("BEEP", CancellationToken.None));
             }
             return Task.WhenAll(tasks);
         }
@@ -130,15 +130,6 @@ namespace XiePinyin.Site
                 }
             }
             return Task.WhenAll(tasks);
-        }
-
-        public void SendToKeysAsync(string sourceSessionKey, int clientRevisionId, List<string> sessionKeys, string change)
-        {
-            // TO-DO: Implement this
-            // Also, this must not be a plain send:
-            // - internal queue needed
-            // - this function only enqueues message.
-            // Maybe move this to heartbeat?
         }
     }
 }

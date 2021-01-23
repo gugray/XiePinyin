@@ -4,7 +4,7 @@ var $ = require("jquery");
 const htmlPage = `
 <div class="shenme">
   <span>甚麼?</span><br/>
-  <a href="/" class="ajax">Let's go to the start page.</a>
+  <a href="/" class="spa">Let's go to the start page.</a>
 </div>
 `;
 

@@ -6,49 +6,49 @@ module.exports = (function () {
   var connectButton, disconnectButton, sendButton;
   var consoleOutput;
 
-  var webSocket;
+  var _ws;
 
   var openWebSocket = function () {
-    webSocket = new WebSocket(locationInput.value);
-    webSocket.onopen = webSocketOnOpen;
-    webSocket.onclose = webSocketOnClose;
-    webSocket.onerror = webSocketOnError;
-    webSocket.onmessage = webSocketOnMessage;
+    _ws = new WebSocket(locationInput.value);
+    _ws.onopen = onSocketOpen;
+    _ws.onclose = onSocketClose;
+    _ws.onerror = onSocketError;
+    _ws.onmessage = onSocketMessage;
   };
 
   var closeWebSocket = function () {
-    webSocket.close();
+    _ws.close();
   }
 
   function sendToWebSocket() {
     var text = messageInput.value;
 
     writeToConsole('[-- SEND --]: ' + text);
-    webSocket.send(text);
+    _ws.send(text);
   }
 
-  var webSocketOnOpen = function () {
-    if (webSocket.protocol) {
-      writeToConsole('[-- CONNECTION ESTABLISHED (' + webSocket.protocol + ') --]');
+  var onSocketOpen = function () {
+    if (_ws.protocol) {
+      writeToConsole('[-- CONNECTION ESTABLISHED (' + _ws.protocol + ') --]');
     } else {
       writeToConsole('[-- CONNECTION ESTABLISHED --]');
     }
     changeUIState(true);
   };
 
-  var webSocketOnClose = function (e) {
+  var onSocketClose = function (e) {
     writeToConsole('[-- CONNECTION CLOSED --]');
     writeToConsole('[-- REASON: ' + e.reason + ' --]');
     changeUIState(false);
   }
 
-  var webSocketOnError = function () {
+  var onSocketError = function () {
     writeToConsole('[-- ERROR OCCURRED --]');
     changeUIState(false);
   }
 
-  var webSocketOnMessage = function (message) {
-    if (webSocket.protocol == 'aspnetcore-ws.json') {
+  var onSocketMessage = function (message) {
+    if (_ws.protocol == 'aspnetcore-ws.json') {
       var parsedData = JSON.parse(message.data);
       writeToConsole('[-- RECEIVED --]: ' + parsedData.message + ' {SERVER TIMESTAMP: ' + parsedData.timestamp + '}');
     } else {

@@ -9,6 +9,7 @@
 
   $: lastEditedStr = new Date(lastEditedIso).toLocaleString("en-US");
   $: docUrl = local ? "/doc/local-" + id : "/doc/" + id;
+  $: lastEditedStr = local ? "Last edited: " + lastEditedStr : "Last edited by me: " + lastEditedStr;
 
   function onDelete() {
     if (!window.confirm("Delete this document? This cannot be undone.\n" + name)) return;
