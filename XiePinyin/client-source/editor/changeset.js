@@ -87,6 +87,10 @@ module.exports = (function () {
   }
 
   function addReplace(cs, start, end, newText) {
+    if (start < 0 || end < start)
+      throw "bad values; expected: start >= 0 and end >= start";
+    if (start > cs.lengthAfter || end > cs.lengthAfter)
+      throw "start or end beyond lengthAfter of changeset";
     let csRepl = {
       lengthBefore: cs.lengthAfter,
       items: [],

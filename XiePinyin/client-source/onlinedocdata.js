@@ -11,15 +11,16 @@ module.exports = (function (sessionKey) {
   var _pingInterval = null;
   var _startCB = null;
   var _tragedyCB = null;
+  var _updateCB = null;
   var _baseText = null;
   var _revisionId = -1;
   var _receivedChanges = null;
   var _sentChanges = null;
+  var _sentChangesFromId = -1;
   var _localChanges = null;
-  var _receivedChangeCB = null;
   var _sendChangeInterval = null;
 
-  function startSession(cbStart, cbTragedy) {
+  function startSession(cbStart, cbTragedy, cbUpdate) {
     let sockUrl = window.location.protocol == "https" ? "wss://" : "ws://";
     sockUrl += window.location.host;
     sockUrl += "/sock";
@@ -30,6 +31,7 @@ module.exports = (function (sessionKey) {
     _ws.onmessage = onSocketMessage;
     _startCB = cbStart;
     _tragedyCB = cbTragedy;
+    _updateCB = cbUpdate;
   }
 
   function closeSession() {
@@ -40,7 +42,6 @@ module.exports = (function (sessionKey) {
     _ws.close();
     _wsOpen = false;
     _ws = null;
-    _receivedChangeCB = null;
   }
 
   function onSocketOpen() {
@@ -76,7 +77,6 @@ module.exports = (function (sessionKey) {
     _name = data.name;
     _baseText = data.text;
     _revisionId = data.revisionId;
-    _receivedChanges = CS.makeIdent(_baseText.length);
     if (_startCB != null) {
       let cb = _startCB;
       _startCB = null;
@@ -90,28 +90,88 @@ module.exports = (function (sessionKey) {
   }
 
   function processUpdate(detail) {
-    const upd = JSON.parse(detail);
+    const ix = detail.indexOf(" ");
+    const newRevisionId = parseInt(detail.substring(0, ix), 10);
+    if (newRevisionId != _revisionId + 1) {
+      shoutTragedy("Received update to next revision " + newRevisionId + " but our current revision is " + _revisionId);
+      return;
+    }
+    const cs = JSON.parse(detail.substring(ix + 1));
+    let newReceivedChanges = _receivedChanges == null ? cs : CS.compose(_receivedChanges, cs);
+    let newSentChanges = null;
+    if (_sentChanges != null) newSentChanges = CS.follow(cs, _sentChanges);
+    let newLocalChanges = null;
+    if (_localChanges != null) {
+      let sentie = _sentChanges;
+      if (sentie == null && _receivedChanges != null) sentie = CS.makeIdent(_receivedChanges.lengthAfter);
+      if (sentie == null) sentie = CS.makeIdent(_baseText.length);
+      let x = CS.follow(sentie, cs);
+      newLocalChanges = CS.follow(x, _localChanges);
+    }
+
+    // Changeset to update view (editor content)
+    let sentie = _sentChanges;
+    if (sentie == null && _receivedChanges != null) sentie = CS.makeIdent(_receivedChanges.lengthAfter);
+    if (sentie == null) sentie = CS.makeIdent(_baseText.length);
+    let localie = _localChanges;
+    if (localie == null && _sentChanges != null) localie = CS.makeIdent(_sentChanges.lengthAfter);
+    if (localie == null && _receivedChanges != null) localie =  CS.makeIdent(_receivedChanges.lengthAfter);
+    if (localie == null) localie = CS.makeIdent(_baseText.length);
+    let x = CS.follow(sentie, cs);
+    let editorChanges = CS.follow(localie, x);
+
+    _receivedChanges = newReceivedChanges;
+    _sentChanges = newSentChanges;
+    _localChanges = newLocalChanges;
+    _revisionId = newRevisionId;
+    _updateCB(function (currText, selStart, selEnd) {
+      let newText = CS.apply(currText, editorChanges);
+      return {
+        text: newText,
+        selStart: 0,
+        selEnd: 0,
+      };
+    });
   }
 
   function processAckChange(detail) {
-
+    const ix = detail.indexOf(" ");
+    const baseRevisionId = parseInt(detail.substring(0, ix), 10);
+    const newRevisionId = parseInt(detail.substring(ix + 1), 10);
+    if (baseRevisionId != _sentChangesFromId) {
+      shoutTragedy("Received change ACK for change sent at " + _sentChangesFromId + " but ACK is for " + baseRevisionId);
+      return;
+    }
+    if (newRevisionId != _revisionId + 1) {
+      shoutTragedy("Received change ACK for change, saying latest revision is " + newRevisionId + " but our current revision is " + _revisionId);
+      return;
+    }
+    if (_receivedChanges == null) _receivedChanges = _sentChanges;
+    else _receivedChanges = CS.compose(_receivedChanges, _sentChanges);
+    _sentChanges = null;
+    _sentChangesFromId = -1;
+    _revisionId = newRevisionId;
   }
 
   function onSocketMessage(e) {
-    const msg = e.data;
-    if (typeof msg !== "string") return;
-    if (msg.startsWith("HELLO ")) processHello(msg.substring(6));
-    else if (msg.startsWith("UPDATE ")) processUpdate(msg.substring(7));
-    else if (msg.startsWith("ACKCHANGE ")) processAckChange(msg.substring(10));
+    let verb = "n/a";
+    try {
+      const msg = e.data;
+      if (typeof msg !== "string") return;
+      let ixSpace = msg.indexOf(" ");
+      if (ixSpace != -1) verb = msg.substring(0, ixSpace);
+      if (msg.startsWith("HELLO ")) processHello(msg.substring(6));
+      else if (msg.startsWith("UPDATE ")) processUpdate(msg.substring(7));
+      else if (msg.startsWith("ACKCHANGE ")) processAckChange(msg.substring(10));
+    }
+    catch (e) {
+      shoutTragedy("Error processing message '" + verb + "'; details: " + e);
+    }
   };
 
   function doPing() {
     if (_ws && _wsOpen)
       _ws.send("PING");
-  }
-
-  function onReceivedChange(cb) {
-    _receivedChangeCB = cb;
   }
 
   function doSendChange() {
@@ -120,18 +180,29 @@ module.exports = (function (sessionKey) {
       shoutTragedy("Trying to send changes but socket is not open.");
       return;
     }
-    _sentChanges = _localChanges;
-    _localChanges = null;
-    let msg = "CHANGE " + _revisionId + " " + JSON.stringify(_sentChanges);
-    _ws.send(msg);
+    try {
+      _sentChanges = _localChanges;
+      _localChanges = null;
+      _sentChangesFromId = _revisionId;
+      let msg = "CHANGE " + _revisionId + " " + JSON.stringify(_sentChanges);
+      _ws.send(msg);
+    }
+    catch (e) {
+      shoutTragedy("An exception occurred while sending local changes: " + e);
+    }
   }
 
   function processEdit(start, end, newText) {
-    if (_localChanges == null) {
-      if (_sentChanges != null) _localChanges = CS.makeIdent(_sentChanges.lengthAfter);
-      else _localChanges = CS.makeIdent(_receivedChanges.lengthAfter);
+    try {
+      if (_localChanges == null) {
+        if (_sentChanges != null) _localChanges = CS.makeIdent(_sentChanges.lengthAfter);
+        else _localChanges = CS.makeIdent(_receivedChanges == null ? _baseText.length : _receivedChanges.lengthAfter);
+      }
+      _localChanges = CS.addReplace(_localChanges, start, end, newText);
     }
-    _localChanges = CS.addReplace(_localChanges, start, end, newText);
+    catch (e) {
+      shoutTragedy("An exception occurred while processing change from the editor: " + e);
+    }
   }
 
   function shoutTragedy(msg) {
@@ -143,6 +214,5 @@ module.exports = (function (sessionKey) {
     startSession,
     closeSession,
     processEdit,
-    onReceivedChange,
   };
 });

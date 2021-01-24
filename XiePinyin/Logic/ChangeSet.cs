@@ -67,6 +67,19 @@ namespace XiePinyin.Logic
             }
             return true;
         }
+        
+        public static XieChar[] Apply(XieChar[] text, ChangeSet cs)
+        {
+            if (text.Length != cs.LengthBefore)
+                throw new ArgumentException("Change set's lengthBefore must match text length");
+            List<XieChar> items = new List<XieChar>(cs.LengthAfter);
+            for (int ix = 0; ix < cs.Items.Count; ++ix)
+            {
+                if (cs.Items[ix] is XieChar) items.Add(cs.Items[ix] as XieChar);
+                else items.Add(text[(int)cs.Items[ix]]);
+            }
+            return items.ToArray();
+        }
 
         public static ChangeSet Compose(ChangeSet a, ChangeSet b)
         {

@@ -35,8 +35,9 @@ namespace XiePinyin.Site
 
         public async Task CloseIfNotClosedAsync(string statusDescription)
         {
-            if (ws.State != WebSocketState.Closed)
-                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
+            if (ws.State == WebSocketState.Closed || ws.State == WebSocketState.Aborted)
+                return;
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
 
         public async Task ReceiveMessagesUntilCloseAsync()

@@ -84,12 +84,18 @@ module.exports = (function (elmHost) {
     }
   }
 
-  function setContent(content) {
+  function setContent(content, newSel) {
     _elmPara = converter.para2dom(content);
     _elmHost.find(".para").remove();
     _elmHost.append(_elmPara);
-    _sel.start = _sel.end = 0;
-    _sel.caretAtStart = false;
+    if (!newSel) {
+      _sel.start = _sel.end = 0;
+      _sel.caretAtStart = false;
+    }
+    else {
+      _sel.start = newSel.start;
+      _sel.end = newSel.end;
+    }
     updateSelection();
   }
 
@@ -115,7 +121,7 @@ module.exports = (function (elmHost) {
     _elmHiddenInput.focus();
     setCaretBlinkie(true);
     if (e.result) {
-      replaceSel(e.result, e.withSpace);
+      replaceSel(e.result);
     }
   }
 
@@ -131,12 +137,13 @@ module.exports = (function (elmHost) {
       case 8: // Backspace
         if (_sel.end != _sel.start || _sel.start > 0) {
           if (_sel.end == _sel.start) --_sel.start; 
-          replaceSel([], false);
+          replaceSel([]);
           handled = true;
         }
         break;
       case 32: // Space
-        replaceSel([], true);
+        let spaceChar = _inputType == "alfa" ? { hanzi: " " } : { hanzi: " ", pinyin: " " };
+        replaceSel([spaceChar]);
         handled = true;
         break;
       case 37: // Left Arrow
@@ -161,7 +168,15 @@ module.exports = (function (elmHost) {
     return converter.dom2para(_elmPara);
   }
 
-  function replaceSel(chars, withSpace) {
+  function getSel() {
+    return {
+      start: _sel.start,
+      end: _sel.end,
+      caretAtStart: _sel.caretAtStart,
+    };
+  }
+
+  function replaceSel(chars) {
     let evt = new CustomEvent("onReplace", {
       detail: {
         start: _sel.start,
@@ -174,13 +189,11 @@ module.exports = (function (elmHost) {
     var newCont = [];
     for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
     for (var i = 0; i < chars.length; ++i) newCont.push(chars[i]);
-    if (withSpace) newCont.push({ hanzi: " ", pinyin: " " });
     for (var i = _sel.end; i < oldCont.length; ++i) newCont.push(oldCont[i]);
     _elmPara = converter.para2dom(newCont);
     _elmHost.find(".para").remove();
     _elmHost.append(_elmPara);
     _sel.start += chars.length;
-    if (withSpace) ++_sel.start;
     _sel.end = _sel.start;
     _sel.caretAtStart = false;
     updateSelection();
@@ -299,6 +312,7 @@ module.exports = (function (elmHost) {
   return {
     setContent,
     getContent,
+    getSel,
     setInputType,
     onReplace,
   };

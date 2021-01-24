@@ -10,7 +10,7 @@ namespace XiePinyin.Logic
         public string Name;
         public readonly XieChar[] StartText;
         public readonly List<Revision> Revisions = new List<Revision>();
-        public readonly XieChar[] HeadText;
+        public XieChar[] HeadText;
 
         public Document(string docId, string name, XieChar[] startText = null)
         {
@@ -37,6 +37,7 @@ namespace XiePinyin.Logic
                 csf = ChangeSet.Follow(Revisions[i].ChangeSet, csf);
             }
             Revisions.Add(new Revision(csf));
+            HeadText = ChangeSet.Apply(HeadText, csf);
             return csf;
         }
     }

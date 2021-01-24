@@ -122,7 +122,7 @@ namespace XiePinyin.Site
         {
             List<Task> tasks = new List<Task>();
             string updMsg = "UPDATE " + ctb.NewDocRevisionId + " " + ctb.ChangeJson;
-            string ackMsg = "ACKCHANGE " + ctb.SourceBaseDocRevisionId;
+            string ackMsg = "ACKCHANGE " + ctb.SourceBaseDocRevisionId + " " + ctb.NewDocRevisionId;
             lock (conns)
             {
                 // Propagate to all provided session keys, except sender herself

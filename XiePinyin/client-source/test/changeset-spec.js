@@ -82,6 +82,7 @@ describe("A changeset", function () {
   it("can be extended with a text replace operation", function () {
 
     let data = [
+      { a: "0>A,B,C,D", start: 4, end: 4, text: "0>X", res: "0>A,B,C,D,X" },
       { a: "0>A,B,C,D", start: 1, end: 3, text: "0>X,Y,Z", res: "0>A,X,Y,Z,D" },
       { a: "0>", start: 0, end: 0, text: "0>X", res: "0>X" },
       { a: "0>A", start: 0, end: 1, text: "0>X", res: "0>X" },
@@ -95,6 +96,14 @@ describe("A changeset", function () {
       let text = CS.makeDiag(data[i].text).items;
       expect(CS.writeDiag(CS.addReplace(cs, start, end, text))).toBe(data[i].res);
     }
+  });
+
+  it("detects bad start/end range in added text replace operation", function () {
+    let cs = CS.makeDiag("0>A,B");
+    expect(() => CS.addReplace(cs, -1, 0, [])).toThrow();
+    expect(() => CS.addReplace(cs, 1, 0, [])).toThrow();
+    expect(() => CS.addReplace(cs, 2, 3, [])).toThrow();
+    expect(() => CS.addReplace(cs, 3, 3, [])).toThrow();
   });
 
   it("can be merged", function () {

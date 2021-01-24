@@ -60,7 +60,7 @@ module.exports = (function (elmHost, path, navigateTo) {
     _elmHost.empty();
     _elmHost.html(htmlTragedy);
     _elmHost.find(".explanation").text(msg);
-    _elmHist.find(".reload").attr("href", window.location.href);
+    _elmHost.find(".reload").attr("href", window.location.href);
   }
 
   function loadDoc() {
@@ -90,7 +90,7 @@ module.exports = (function (elmHost, path, navigateTo) {
       _docData.startSession(function (error, loadData) {
         if (error) initError("Failed to start session; the server said: " + error);
         else init(loadData.name, loadData.baseText);
-      }, onConnectionTragedy);
+      }, onConnectionTragedy, onRemoteUpdate);
     });
     req.fail(function () {
       initError("The server returned an error. Most likely the document no longer exists.");
@@ -120,6 +120,13 @@ module.exports = (function (elmHost, path, navigateTo) {
     _editor.setContent(baseText);
     _editor.setInputType(_state.inputType);
     _editor.onReplace(onReplace);
+  }
+
+  function onRemoteUpdate(updater) {
+    let text = _editor.getContent();
+    let sel = _editor.getSel();
+    let updated = updater(text, sel.start, sel.end);
+    _editor.setContent(updated.text, { start: updated.selStart, end: updated.selEnd });
   }
 
   function onReplace(e) {

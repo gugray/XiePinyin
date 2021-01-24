@@ -101,8 +101,7 @@ module.exports = (function (elmHost) {
       evt.result = [];
       for (var i = 0; i < hanzi.length; ++i)
         evt.result.push({ hanzi: hanzi[i], pinyin: pinyin[i] });
-      if (withSpace) evt.withSpace = true;
-      else evt.withSpace = false;
+      if (withSpace) evt.result.push({ hanzi: " ", pinyin: " " });
     }
     _evtTarget.dispatchEvent(evt);
   }
