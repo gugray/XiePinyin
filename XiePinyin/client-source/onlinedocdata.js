@@ -21,7 +21,7 @@ module.exports = (function (sessionKey) {
   var _sendChangeInterval = null;
 
   function startSession(cbStart, cbTragedy, cbUpdate) {
-    let sockUrl = window.location.protocol == "https" ? "wss://" : "ws://";
+    let sockUrl = window.location.protocol.startsWith("https") ? "wss://" : "ws://";
     sockUrl += window.location.host;
     sockUrl += "/sock";
     _ws = new WebSocket(sockUrl);
