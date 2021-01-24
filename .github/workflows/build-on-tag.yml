@@ -51,7 +51,8 @@ jobs:
       run: dotnet test --no-build --verbosity normal
 
     - name: File system publish
-      run: dotnet publish -o ./dist-linux-x64 -c Release --self-contained true -r linux-x64
+      working-directory: ./XiePinyin
+      run: dotnet publish -o ../dist-linux-x64 -c Release --self-contained true -r linux-x64
 
     - name: ZIP output folder
       run: zip -r dist-linux-x64.zip ./dist-linux-x64
