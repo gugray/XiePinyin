@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-using XiePinyin.Logic;
-
-namespace XiePinyin.Site
+namespace XiePinyin.Logic
 {
     public class DocumentJuggler
     {
@@ -36,7 +34,7 @@ namespace XiePinyin.Site
         readonly List<Session> sessions = new List<Session>();
         readonly List<Document> docs = new List<Document>();
 
-        public IChangeBroadcaster Broadcaster;
+        internal IBroadcaster Broadcaster;
 
         public DocumentJuggler()
         {
@@ -133,15 +131,20 @@ namespace XiePinyin.Site
                 if (sess == null) return false;
                 var doc = docs.Find(x => x.DocId == sess.DocId);
                 if (doc == null) return false;
-                string changeToPropagateStr;
                 ChangeSet cs = ChangeSet.FromJson(change);
                 var csToProp = doc.ApplyChange(cs, clientRevisionId);
-                changeToPropagateStr = csToProp.SerializeJson();
                 List<string> receivers = new List<string>();
                 foreach (var x in sessions)
                     if (x.Started && x.DocId == doc.DocId)
                         receivers.Add(x.SessionKey);
-                Broadcaster.SendToKeysAsync(sessionKey, clientRevisionId, receivers, changeToPropagateStr);
+                Broadcaster.EnqueueChangeForBroadcast(new ChangeToBroadcast
+                {
+                    SourceSessionKey = sessionKey,
+                    SourceBaseDocRevisionId = clientRevisionId,
+                    NewDocRevisionId = doc.Revisions.Count - 1,
+                    ReceiverSessionKeys = receivers,
+                    ChangeJson = csToProp.SerializeJson(),
+                });
             }
             return true;
         }

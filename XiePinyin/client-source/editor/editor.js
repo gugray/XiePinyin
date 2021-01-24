@@ -162,6 +162,14 @@ module.exports = (function (elmHost) {
   }
 
   function replaceSel(chars, withSpace) {
+    let evt = new CustomEvent("onReplace", {
+      detail: {
+        start: _sel.start,
+        end: _sel.end,
+        newText: chars,
+      }
+    });
+
     var oldCont = converter.dom2para(_elmPara);
     var newCont = [];
     for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
@@ -177,7 +185,7 @@ module.exports = (function (elmHost) {
     _sel.caretAtStart = false;
     updateSelection();
 
-    updateSelection();
+    _elmHost[0].dispatchEvent(evt);
   }
 
   function handleLeft(ctrlKey, shiftKey) {
@@ -284,9 +292,14 @@ module.exports = (function (elmHost) {
     _elmPinyinCaret.css("top",  pinyinCaretY + "px");
   }
 
+  function onReplace(handler) {
+    _elmHost[0].addEventListener("onReplace", handler);
+  }
+
   return {
     setContent,
     getContent,
     setInputType,
+    onReplace,
   };
 });

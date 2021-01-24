@@ -1,17 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace XiePinyin.Logic
 {
     class ChangeSet
     {
+        [JsonProperty("lengthBefore")]
         public int LengthBefore;
+
+        [JsonProperty("lengthAfter")]
         public int LengthAfter;
+
         /// <summary>
         /// Boxed integers for kept indexes, or <see cref="XieChar"/>s for insertions.
         /// </summary>
+        [JsonProperty("items")]
         public readonly List<object> Items = new List<object>();
 
         public static ChangeSet CreateIdent(int length)
@@ -24,14 +29,27 @@ namespace XiePinyin.Logic
 
         public static ChangeSet FromJson(string json)
         {
-            // TO-DO
-            return null;
+            var res = new ChangeSet();
+            var obj = JObject.Parse(json);
+            res.LengthBefore = (int)obj.GetValue("lengthBefore");
+            res.LengthAfter = (int)obj.GetValue("lengthAfter");
+            foreach (var itm in obj.GetValue("items"))
+            {
+                if (itm.Type == JTokenType.Integer) res.Items.Add((int)itm);
+                else
+                {
+                    string hanzi = (string)(itm as JObject).GetValue("hanzi");
+                    string pinyin = (string)(itm as JObject).GetValue("pinyin");
+                    if (pinyin != null) res.Items.Add(new XieChar(hanzi, pinyin));
+                    else res.Items.Add(new XieChar(hanzi));
+                }    
+            }
+            return res;
         }
 
         public string SerializeJson()
         {
-            // TO-DO
-            return "change";
+            return JsonConvert.SerializeObject(this);
         }
 
         public bool IsValid()

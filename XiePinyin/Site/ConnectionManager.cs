@@ -2,7 +2,8 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
+
+using XiePinyin.Logic;
 
 namespace XiePinyin.Site
 {
@@ -86,7 +87,7 @@ namespace XiePinyin.Site
             if (msg.StartsWith("CHANGE "))
             {
                 int ix = msg.IndexOf(' ', 7);
-                int revId = int.Parse(msg.Substring(7, ix - 7 - 1));
+                int revId = int.Parse(msg.Substring(7, ix - 7));
                 if (!docJuggler.ChangeReceived(mc.SessionKey, revId, msg.Substring(ix + 1)))
                     await wsc.CloseIfNotClosedAsync("We don't like this change; your session might have expired, or the doc may be gone");
                 return;
@@ -113,6 +114,30 @@ namespace XiePinyin.Site
             {
                 foreach (var x in conns)
                     tasks.Add(x.WSC.SendAsync("BEEP", CancellationToken.None));
+            }
+            return Task.WhenAll(tasks);
+        }
+        
+        public Task BroadcastChange(ChangeToBroadcast ctb)
+        {
+            List<Task> tasks = new List<Task>();
+            string updMsg = "UPDATE " + ctb.NewDocRevisionId + " " + ctb.ChangeJson;
+            string ackMsg = "ACKCHANGE " + ctb.SourceBaseDocRevisionId;
+            lock (conns)
+            {
+                // Propagate to all provided session keys, except sender herself
+                ManagedConnection senderConn = null;
+                foreach (var x in conns)
+                {
+                    if (x.SessionKey == ctb.SourceSessionKey)
+                        senderConn = x;
+                    if (!ctb.ReceiverSessionKeys.Contains(x.SessionKey) || x.SessionKey == ctb.SourceSessionKey)
+                        continue;
+                    tasks.Add(x.WSC.SendAsync(updMsg, CancellationToken.None));
+                }
+                // Acknowledge change to sender
+                if (senderConn != null)
+                    tasks.Add(senderConn.WSC.SendAsync(ackMsg, CancellationToken.None));
             }
             return Task.WhenAll(tasks);
         }

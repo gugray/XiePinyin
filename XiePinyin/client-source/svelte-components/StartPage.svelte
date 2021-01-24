@@ -36,7 +36,7 @@
 			docs.unshift({ name: e.detail.name, lastEditedIso: new Date().toISOString(), id: id });
 			localDocs.set(docs);
 			let docData = {
-				paras: [[]]
+				xieText: []
 			};
 			localStorage.setItem("doc-" + id, JSON.stringify(docData));
 		}

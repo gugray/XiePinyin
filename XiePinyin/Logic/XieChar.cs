@@ -9,21 +9,18 @@ namespace XiePinyin.Logic
     {
         [JsonProperty("hanzi")]
         public readonly string Hanzi;
-        [JsonProperty("pinyin")]
+
+        [JsonProperty("pinyin", NullValueHandling = NullValueHandling.Ignore)]
         public readonly string Pinyin;
 
-        public XieChar(string hanzi, string pinyin)
+        [JsonConstructor]
+        public XieChar(string hanzi, string pinyin = null)
         {
             Hanzi = hanzi;
             Pinyin = pinyin;
         }
 
-        public XieChar(string hanzi)
-        {
-            Hanzi = hanzi;
-            Pinyin = null;
-        }
-
+        [JsonIgnore]
         public string DebugStr
         {
             get

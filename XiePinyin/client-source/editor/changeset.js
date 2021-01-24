@@ -75,6 +75,29 @@ module.exports = (function () {
     return res;
   }
 
+  function apply(text, cs) {
+    if (text.length != cs.lengthBefore)
+      throw "Change set's lengthBefore must match text length";
+    let items = [];
+    for (let ix = 0; ix < cs.items.length; ++ix) {
+      if (typeof cs.items[ix] === "object") items.push(cs.items[ix]);
+      else items.push(text[cs.items[ix]]);
+    }
+    return items;
+  }
+
+  function addReplace(cs, start, end, newText) {
+    let csRepl = {
+      lengthBefore: cs.lengthAfter,
+      items: [],
+    };
+    for (let ix = 0; ix < start; ++ix) csRepl.items.push(ix);
+    for (let i = 0; i < newText.length; ++i) csRepl.items.push(newText[i]);
+    for (let ix = end; ix < cs.lengthAfter; ++ix) csRepl.items.push(ix);
+    csRepl.lengthAfter = csRepl.items.length;
+    return compose(cs, csRepl);
+  }
+
   function compose(a, b) {
     if (a.lengthAfter != b.lengthBefore)
       throw "lengthAfter of LHS must equal lengthBefore of RHS";
@@ -220,6 +243,8 @@ module.exports = (function () {
     makeIdent,
     makeDiag,
     writeDiag,
+    addReplace,
+    apply,
     chrCmp,
     isValid,
     compose,

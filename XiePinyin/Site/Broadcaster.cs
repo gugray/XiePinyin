@@ -3,13 +3,17 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+using XiePinyin.Logic;
+
 namespace XiePinyin.Site
 {
-    internal class Broadcaster : IChangeBroadcaster
+    internal class Broadcaster : IBroadcaster
     {
+
         readonly ConnectionManager connMgr;
         readonly Thread thread;
         readonly AutoResetEvent loopEvent = new AutoResetEvent(false);
+        readonly List<ChangeToBroadcast> broadcastQueue = new List<ChangeToBroadcast>();
         bool shuttingDown = false;
 
         public Broadcaster(ConnectionManager connectionManager)
@@ -25,32 +29,49 @@ namespace XiePinyin.Site
             loopEvent.Set();
         }
 
-        public void SendToKeysAsync(string sourceSessionKey, int clientRevisionId, List<string> sessionKeys, string change)
+        public void EnqueueChangeForBroadcast(ChangeToBroadcast ctb)
         {
-            // TO-DO: Implement this
-            // Also, this must not be a plain send:
-            // - internal queue needed
-            // - this function only enqueues message.
-            return;
+            lock (broadcastQueue)
+            {
+                broadcastQueue.Add(ctb);
+                loopEvent.Set();
+            }
         }
 
-        private void threadFun()
+        /// <summary>
+        /// Broadcasts whatever is in the queue. Must be called from within lock.
+        /// </summary>
+        void broadcastFromQueue()
+        {
+            foreach (var ctb in broadcastQueue)
+            {
+                connMgr.BroadcastChange(ctb).Wait();
+            }
+            broadcastQueue.Clear();
+        }
+
+        void threadFun()
         {
             DateTime lastBeep = DateTime.UtcNow;
             while (true)
             {
                 // Waking up to an event
-                if (loopEvent.WaitOne(1000))
+                if (loopEvent.WaitOne(500))
                 {
-                    // Let's see whats up?
                     if (shuttingDown) break;
-                    // TO-DO: broadcast from queue
-                    continue;
+                    lock (broadcastQueue)
+                    {
+                        broadcastFromQueue();
+                    }
                 }
+                // Whether we're here because event was signaled or we got tired waiting:
+                // Let's look at the time and deal with recurring activities
+                if (shuttingDown) break;
                 int msecSinceLastBeep = (int)DateTime.UtcNow.Subtract(lastBeep).TotalMilliseconds;
                 if (msecSinceLastBeep > 5000)
                 {
-                    connMgr.BeepToAllAsync().Wait();
+                    // TO-DO: Turn back on
+                    //connMgr.BeepToAllAsync().Wait();
                     connMgr.CloseStaleConnections().Wait();
                     lastBeep = DateTime.UtcNow;
                 }

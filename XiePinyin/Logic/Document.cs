@@ -21,10 +21,23 @@ namespace XiePinyin.Logic
             Revisions.Add(new Revision(ChangeSet.CreateIdent(StartText.Length)));
         }
 
+        /// <summary>
+        /// Applies a changeset received from a client to the document.
+        /// </summary>
+        /// <param name="cs">Changeset received from client.</param>
+        /// <param name="baseRevId">Client's head revision ID (latest revision they are aware of; this is what the change is based on).</param>
+        /// <returns>Computed new changeset added to the end of document's master revision list.</returns>
         public ChangeSet ApplyChange(ChangeSet cs, int baseRevId)
         {
-            // TO-DO
-            return ChangeSet.CreateIdent(0);
+            // Compute sequence of follows so we get changeset that applies to our latest revision
+            // Server's head might be ahead of the revision known to the client, which is what this CS is based on.
+            var csf = cs;
+            for (int i = baseRevId + 1; i < Revisions.Count; ++i)
+            {
+                csf = ChangeSet.Follow(Revisions[i].ChangeSet, csf);
+            }
+            Revisions.Add(new Revision(csf));
+            return csf;
         }
     }
 }

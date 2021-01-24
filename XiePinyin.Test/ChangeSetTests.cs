@@ -36,6 +36,17 @@ namespace XiePinyin.Test
             return res;
         }
 
+        [TestCase("1>0,Z", "{\"lengthBefore\":1,\"lengthAfter\":2,\"items\":[0,{\"hanzi\":\"Z\"}]}")]
+        public void Object_Serialized_Deserialized(string csStr, string jsonStr)
+        {
+            var cs2 = ChangeSet.FromJson(jsonStr);
+            Assert.AreEqual(toFriendlyStr(cs2), csStr);
+
+            var cs = fromFriendlyStr(csStr);
+            var jsonRes = cs.SerializeJson();
+            Assert.AreEqual(jsonStr, jsonRes);
+        }
+
         [TestCase("0>0")]
         [TestCase("1>-1")]
         [TestCase("2>1,0")]

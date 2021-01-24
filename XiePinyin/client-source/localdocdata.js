@@ -1,27 +1,24 @@
 ﻿"use strict";
 var $ = require("jquery");
+var CS = require('./editor/changeset');
 
 module.exports = (function (id) {
 
   var _id = id;
-
-  var _sample = {
-    name: "Sample document",
-    id: "sample",
-    lastEditedIso: new Date().toISOString(),
-  };
+  var _baseText = null;
+  var _changes = null;
 
   function getDocInfo() {
-    var docInfos = [];
-    var docsJson = localStorage.getItem("docs");
-    if (docsJson) docInfos = JSON.parse(docsJson);
-    docInfos.push(_sample);
+    if (_id == "sample") {
+      return {
+        name: "Sample document",
+        id: "sample",
+        lastEditedIso: new Date().toISOString(),
+      };
+    }
+    let docsJson = localStorage.getItem("docs");
+    let docInfos = JSON.parse(docsJson);
     return docInfos.find(itm => itm.id == id);
-  }
-
-  function getName() {
-    var di = getDocInfo();
-    return di.name;
   }
 
   function touch() {
@@ -43,32 +40,45 @@ module.exports = (function (id) {
     localStorage.setItem("docs", JSON.stringify(newInfos));
   }
 
-  function getContent() {
+  function startSession(startCB) {
     let docDataJson = localStorage.getItem("doc-" + _id);
-    if (docDataJson) {
-      let docData = JSON.parse(docDataJson);
-      return docData.paras[0];
-    }
-    return null;
+    let docData = JSON.parse(docDataJson);
+    _baseText = docData.xieText;
+    _changes = CS.makeIdent(_baseText.length);
+    
+    setTimeout(() => {
+      startCB(null, {
+        name: getDocInfo().name,
+        baseText: docData.xieText
+      });
+    }, 0);
   }
 
-  function saveContent(para) {
+  function saveContent() {
     if (_id == "sample") return;
+
+    let newText = CS.apply(_baseText, _changes);
+
     var docJson = localStorage.getItem("doc-" + _id);
     var doc = JSON.parse(docJson);
+
     // No touchie if content didn't actually change
-    var oldContentJson = JSON.stringify(doc.paras);
-    var newContentJson = JSON.stringify([para]);
+    var oldContentJson = JSON.stringify(doc.xieText);
+    var newContentJson = JSON.stringify(newText);
     if (oldContentJson == newContentJson) return;
 
-    doc.paras[0] = para;
+    doc.xieText = newText;
     localStorage.setItem("doc-" + _id, JSON.stringify(doc));
     touch();
   }
 
+  function processEdit(start, end, newText) {
+    _changes = CS.addReplace(_changes, start, end, newText);
+    saveContent();
+  }
+
   return {
-    getName,
-    saveContent,
-    getContent,
+    startSession,
+    processEdit,
   };
 });

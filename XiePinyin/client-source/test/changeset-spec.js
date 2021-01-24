@@ -79,6 +79,24 @@ describe("A changeset", function () {
     }
   });
 
+  it("can be extended with a text replace operation", function () {
+
+    let data = [
+      { a: "0>A,B,C,D", start: 1, end: 3, text: "0>X,Y,Z", res: "0>A,X,Y,Z,D" },
+      { a: "0>", start: 0, end: 0, text: "0>X", res: "0>X" },
+      { a: "0>A", start: 0, end: 1, text: "0>X", res: "0>X" },
+      { a: "0>A,B,C,D", start: 0, end: 4, text: "0>", res: "0>" },
+    ];
+
+    for (let i = 0; i < data.length; ++i) {
+      let cs = CS.makeDiag(data[i].a);
+      let start = data[i].start;
+      let end = data[i].end;
+      let text = CS.makeDiag(data[i].text).items;
+      expect(CS.writeDiag(CS.addReplace(cs, start, end, text))).toBe(data[i].res);
+    }
+  });
+
   it("can be merged", function () {
     let csa = CS.makeDiag("0>");
     let csb = CS.makeDiag("1>X");
