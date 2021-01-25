@@ -1,6 +1,5 @@
 ﻿"use strict";
 var $ = require("jquery");
-var samplePara = require("./editor/samplepara");
 var localDocData = require("./localdocdata");
 var onlineDocData = require("./onlinedocdata");
 

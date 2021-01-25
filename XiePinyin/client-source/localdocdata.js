@@ -1,5 +1,6 @@
 ﻿"use strict";
 var $ = require("jquery");
+var samplePara = require("./samplepara");
 var CS = require('./editor/changeset');
 
 module.exports = (function (id) {
@@ -41,15 +42,18 @@ module.exports = (function (id) {
   }
 
   function startSession(startCB) {
-    let docDataJson = localStorage.getItem("doc-" + _id);
-    let docData = JSON.parse(docDataJson);
-    _baseText = docData.xieText;
+    if (_id == "sample") _baseText = samplePara();
+    else {
+      let docDataJson = localStorage.getItem("doc-" + _id);
+      let docData = JSON.parse(docDataJson);
+      _baseText = docData.xieText;
+    }
     _changes = CS.makeIdent(_baseText.length);
     
     setTimeout(() => {
       startCB(null, {
         name: getDocInfo().name,
-        baseText: docData.xieText
+        baseText: _baseText
       });
     }, 0);
   }

@@ -17,7 +17,7 @@ module.exports = (function (elmHost, shortcutHandler) {
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
   var _elmComposer = $(htmlComposer);
-  var _elmPara = converter.para2dom([]);
+  var _elmParas = converter.text2dom([]);
   var _sel = {
     start: 0,
     end: 0,
@@ -91,9 +91,9 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function setContent(content, newSel) {
-    _elmPara = converter.para2dom(content);
+    _elmParas = converter.text2dom(content);
     _elmHost.find(".para").remove();
-    _elmHost.append(_elmPara);
+    for (let i = 0; i < _elmParas.length; ++i) _elmHost.append(_elmParas[i]);
     if (!newSel) {
       _sel.start = _sel.end = 0;
       _sel.caretAtStart = false;
@@ -146,31 +146,31 @@ module.exports = (function (elmHost, shortcutHandler) {
   function onKeyDown(e) {
     var plain = !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey;
     var handled = false;
-    switch (e.keyCode) {
-      //case 13: // Enter
-      //case 27: // Esc
-      case 8: // Backspace
+    switch (e.code) {
+      case "Backspace":
         if (_sel.end != _sel.start || _sel.start > 0) {
           if (_sel.end == _sel.start) --_sel.start; 
           replaceSel([]);
           handled = true;
         }
         break;
-      case 32: // Space
+      case "Enter":
+        replaceSel([{ hanzi: "\n", pinyin: "\n" }]);
+        handled = true;
+        break;
+      case "Space":
         let spaceChar = _inputType == "alfa" ? { hanzi: " " } : { hanzi: " ", pinyin: " " };
         replaceSel([spaceChar]);
         handled = true;
         break;
-      case 37: // Left Arrow
+      case "ArrowLeft":
         handleLeft(e.ctrlKey, e.shiftKey);
         handled = true;
         break;
-      //case 38: // Up Arrow
-      case 39:   // Right Arrow
+      case "ArrowRight":
         handleRight(e.ctrlKey, e.shiftKey);
         handled = true;
         break;
-        //case 40: // Down Arrow
     }
     if (!handled) handled = _shortcutHandler(e);
     if (handled) {
@@ -180,7 +180,7 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function getContent() {
-    return converter.dom2para(_elmPara);
+    return converter.dom2text(_elmParas);
   }
 
   function getSel() {
@@ -200,18 +200,19 @@ module.exports = (function (elmHost, shortcutHandler) {
       }
     });
 
-    var oldCont = converter.dom2para(_elmPara);
+    var oldCont = converter.dom2text(_elmParas);
     var newCont = [];
     for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
     for (var i = 0; i < chars.length; ++i) newCont.push(chars[i]);
     for (var i = _sel.end; i < oldCont.length; ++i) newCont.push(oldCont[i]);
-    _elmPara = converter.para2dom(newCont);
+    _elmParas = converter.text2dom(newCont);
     _elmHost.find(".para").remove();
-    _elmHost.append(_elmPara);
+    for (let i = 0; i < _elmParas.length; ++i) _elmHost.append(_elmParas[i]);
     _sel.start += chars.length;
     _sel.end = _sel.start;
     _sel.caretAtStart = false;
     updateSelection();
+    if (_elmHiddenInput.is(":focus")) setCaretBlinkie(true, true);
 
     _elmHost[0].dispatchEvent(evt);
   }
@@ -249,7 +250,7 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function handleRight(ctrlKey, shiftKey) {
-    const charCount = _elmPara.find("div.hanzi>span.x").length;
+    const charCount = _elmHost.find(".para div.hanzi>span.x").length;
     // Moving one char at a time
     if (!ctrlKey) {
       // We have a selection and shift is not pressed: Selection gone, caret is at right of selection

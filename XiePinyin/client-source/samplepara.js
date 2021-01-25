@@ -15,7 +15,7 @@ module.exports = (function () {
     { hanzi: " ", pinyin: " " },
     { hanzi: "岁", pinyin: "sui4" },
     { hanzi: "，", pinyin: "," },
-    { hanzi: " ", pinyin: " " },
+    { hanzi: "\n", pinyin: "\n" },
     { hanzi: "高", pinyin: "gao1" },
     { hanzi: "中", pinyin: "zhong1" },
     { hanzi: " ", pinyin: " " },

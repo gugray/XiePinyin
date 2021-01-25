@@ -113,11 +113,11 @@ module.exports = (function (elmHost) {
   function onKeyDown(e) {
     var isHidden = e.target.id == "composerHidden";
     var handled = false;
-    switch (e.keyCode) {
-      case 9: // Tab
+    switch (e.code) {
+      case "Tab":
         handled = true;
         break;
-      case 32: // Space
+      case "Space":
         handled = true;
         var sstart = _elmInput[0].selectionStart;
         var ssend = _elmInput[0].selectionEnd;
@@ -125,13 +125,13 @@ module.exports = (function (elmHost) {
         if (sstart == ssend && sstart == _elmInput.val().length && _elmInput.val().length != 0)
           close(_elmSuggestions.find("span.sel").text(), true);
         break;
-      case 13: // Enter
+      case "Enter":
         close(_elmSuggestions.find("span.sel").text());
         break;
-      case 27: // Esc
+      case "Escape":
         close(null);
         break;
-      case 40: // Down arrow
+      case "ArrowDown":
         if (isHidden) navigateSuggestions("down");
         else {
           _elmHiddenInput.focus();
@@ -139,19 +139,19 @@ module.exports = (function (elmHost) {
         }
         handled = true;
         break;
-      case 38: // Up arrow
+      case "ArrowUp":
         if (isHidden) {
           navigateSuggestions("up");
           handled = true;
         }
         break;
-      case 37: // Left arrow
+      case "ArrowLeft":
         if (isHidden) {
           navigateSuggestions("left");
           handled = true;
         }
         break;
-      case 39: // Right arrow
+      case "ArrowRight":
         if (isHidden) {
           navigateSuggestions("right");
           handled = true;
