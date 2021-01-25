@@ -97,5 +97,6 @@ gulp.task('watch', function () {
   livereload.listen(35730);
   gulp.watch(['./client-source/*.less'], gulp.series('styles'));
   gulp.watch(['./client-source/*.js'], gulp.series('browserify'));
+  gulp.watch(['./client-source/editor/*.js'], gulp.series('browserify'));
   gulp.watch(['./client-source/svelte-components/*.*'], gulp.series('svelte-pack'));
 });

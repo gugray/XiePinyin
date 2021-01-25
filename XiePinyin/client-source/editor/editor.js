@@ -8,9 +8,11 @@ const htmlPinyinCaret = '<div class="caret pinyin hidden">&nbsp;</div>';
 const htmlHiddenInput = '<input type="text" id="hiddenInput" autofocus="autofocus"/>';
 const htmlComposer = '<div class="composer"></div>';
 
-module.exports = (function (elmHost) {
+module.exports = (function (elmHost, shortcutHandler) {
   var _elmHost = elmHost;
+  var _shortcutHandler = shortcutHandler;
   var _inputType = "simp";
+  var _mouseButtonPressed = false;
   var _elmHanziCaret = $(htmlHanziCaret);
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
@@ -27,6 +29,7 @@ module.exports = (function (elmHost) {
   init();
   setContent([]);
 
+
   function init() {
     // Add caret asset
     _elmHost.empty();
@@ -35,11 +38,16 @@ module.exports = (function (elmHost) {
 
     // Hidden input field
     _elmHost.append(_elmHiddenInput);
+
+    // Magic around blinking caret, focus chasing etc.
+    $(document).mousedown(() => _mouseButtonPressed = true);
+    $(document).mouseup(() => _mouseButtonPressed = false);
+    $(document).focusout(() => { if (!_mouseButtonPressed) setCaretBlinkie(false, false); });
+    _elmHiddenInput.focusin(() => setCaretBlinkie(true, false));
     _elmHiddenInput.focus();
     $(document).focus(() => _elmHiddenInput.focus());
     _elmHiddenInput.on("input", onHiddenInput);
-
-
+    _caretInterval = setInterval(caretInterval, 500);
     $("body").click(() => _elmHiddenInput.focus());
 
     // Composer
@@ -47,38 +55,36 @@ module.exports = (function (elmHost) {
     _composer = composer(_elmComposer);
     _composer.closed(onComposerClosed);
 
-    // Caret blinkety blink
-    setCaretBlinkie(true);
-
     // Mouse and keyboard handlers
     _elmHost.mousedown(onMouseDown);
     _elmHiddenInput.keydown(onKeyDown);
   }
 
-  function setCaretBlinkie(blinking) {
-    if (_caretInterval) {
-      clearInterval(_caretInterval);
-      _caretInterval = null;
-    }
-    if (blinking) {
-      _elmHanziCaret.removeClass("frozen");
-      _elmPinyinCaret.removeClass("frozen");
-      _caretInterval = setInterval(function () {
-        if (_elmHanziCaret.hasClass("hidden")) {
-          _elmHanziCaret.removeClass("hidden");
-          _elmPinyinCaret.removeClass("hidden");
-        }
-        else {
-          _elmHanziCaret.addClass("hidden");
-          _elmPinyinCaret.addClass("hidden");
-        }
-      }, 500);
+  function caretInterval() {
+    if (_elmHanziCaret.hasClass("hidden")) {
       _elmHanziCaret.removeClass("hidden");
       _elmPinyinCaret.removeClass("hidden");
     }
     else {
-      _elmHanziCaret.removeClass("hidden");
-      _elmPinyinCaret.removeClass("hidden");
+      _elmHanziCaret.addClass("hidden");
+      _elmPinyinCaret.addClass("hidden");
+    }
+  }
+
+  function setCaretBlinkie(blinking, restart) {
+    if (restart) {
+      clearInterval(_caretInterval);
+      _caretInterval = setInterval(caretInterval, 500);
+    }
+    if (blinking) {
+      _elmHanziCaret.removeClass("frozen");
+      _elmPinyinCaret.removeClass("frozen");
+      if (restart) {
+        _elmHanziCaret.removeClass("hidden");
+        _elmPinyinCaret.removeClass("hidden");
+      }
+    }
+    else {
       _elmHanziCaret.addClass("frozen");
       _elmPinyinCaret.addClass("frozen");
     }
@@ -111,15 +117,24 @@ module.exports = (function (elmHost) {
     _suppressHiddenInfputChange = true;
     _elmHiddenInput.val("");
     _suppressHiddenInfputChange = false;
-    _elmHiddenInput.prop("disabled", true);
-    setCaretBlinkie(false);
-    _composer.show(val, _inputType);
+    // If we're in alfa mode, insert characters into text
+    if (_inputType == "alfa") {
+      for (let i = 0; i < val.length; ++i) {
+        replaceSel([{ hanzi: val[i] }]);
+      }
+    }
+    // In biscriptal mode, show composer window
+    else {
+      _elmHiddenInput.prop("disabled", true);
+      setCaretBlinkie(false);
+      _composer.show(val, _inputType);
+    }
   }
 
   function onComposerClosed(e) {
     _elmHiddenInput.prop("disabled", false);
     _elmHiddenInput.focus();
-    setCaretBlinkie(true);
+    setCaretBlinkie(true, true);
     if (e.result) {
       replaceSel(e.result);
     }
@@ -156,8 +171,8 @@ module.exports = (function (elmHost) {
         handled = true;
         break;
         //case 40: // Down Arrow
-
     }
+    if (!handled) handled = _shortcutHandler(e);
     if (handled) {
       e.preventDefault();
       e.stopPropagation();
@@ -230,7 +245,7 @@ module.exports = (function (elmHost) {
       }
     }
     updateSelection();
-    setCaretBlinkie(true);
+    setCaretBlinkie(true, true);
   }
 
   function handleRight(ctrlKey, shiftKey) {
@@ -263,7 +278,7 @@ module.exports = (function (elmHost) {
       }
     }
     updateSelection();
-    setCaretBlinkie(true);
+    setCaretBlinkie(true, true);
   }
 
   function updateSelection() {
@@ -284,16 +299,19 @@ module.exports = (function (elmHost) {
           elmHanzi.addClass("sel");
           elmPinyin.addClass("sel");
         }
-        if (ix == _sel.start && _sel.caretAtStart || ix == _sel.end - 1 && !_sel.caretAtStart) {
+        if (ix == _sel.start && (_sel.caretAtStart || _sel.end == _sel.start) || ix == _sel.end - 1 && !_sel.caretAtStart) {
           hanziCaretY = elmHanzi.offset().top - _elmHost.offset().top;
-          pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
-          if (_sel.caretAtStart) {
+          if (elmPinyin.length != 0) pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
+          else pinyinCaretY = hanziCaretY + _elmHanziCaret.height();
+          if (_sel.caretAtStart || _sel.end == _sel.start) {
             hanziCaretX = elmHanzi.offset().left - _elmHost.offset().left - 2;
-            pinyinCaretX = elmPinyin.offset().left - _elmHost.offset().left - 2;
+            if (elmPinyin.length != 0) pinyinCaretX = elmPinyin.offset().left - _elmHost.offset().left - 2;
+            else pinyinCaretX = hanziCaretX;
           }
           else {
             hanziCaretX = elmHanzi.offset().left + elmHanzi.width() - _elmHost.offset().left - 2;
-            pinyinCaretX = elmPinyin.offset().left + elmPinyin.width() - _elmHost.offset().left - 2;
+            if (elmPinyin.length != 0) pinyinCaretX = elmPinyin.offset().left + elmPinyin.width() - _elmHost.offset().left - 2;
+            else pinyinCaretX = hanziCaretX;
           }
         }
         if (elmHanzi.hasClass("x")) ++ix;

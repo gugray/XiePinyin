@@ -34,7 +34,7 @@ input {
   .caret {
     position: absolute; width: 2px; background-color: @cursorColor;
     &.hidden { display: none; }
-    &.frozen { background-color: @lightCursorColor; }
+    &.frozen, &.hidden.frozen { display: block; background-color: @lightCursorColor; }
     &.hanzi { height: @fntSizeHanzi * 1.5; }
     &.pinyin { height: @fntSizePinyin * 1.5; }
   }
@@ -60,6 +60,10 @@ input {
     div.hanzi {
       font-size: @fntSizeHanzi;  text-align: center;
       height: @fntSizeHanzi * 1.5;
+    }
+    &.alfa div.hanzi {
+      font-size: @fntSizePinyin; height: (@fntSizeHanzi + @fntSizePinyin) * 1.5;
+      span { padding-top: @fntSizeHanzi * 1.5; }
     }
     div.pinyin {
       height: @fntSizePinyin * 1.5;  text-align: left;

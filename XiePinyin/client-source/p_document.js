@@ -46,6 +46,7 @@ module.exports = (function (elmHost, path, navigateTo) {
   var _docData = null;
   var _state = {
     inputType: "simp",
+    lastHanziInputType: "simp",
   };
 
   loadDoc();
@@ -108,6 +109,7 @@ module.exports = (function (elmHost, path, navigateTo) {
       }
     });
     _header.$on("inputType", e => {
+      if (e.detail.val != "alfa") _state.lastHanziInputType = e.detail.val;
       _state.inputType = e.detail.val;
       _editor.setInputType(_state.inputType);
     });
@@ -116,10 +118,27 @@ module.exports = (function (elmHost, path, navigateTo) {
       _navigateTo("");
     });
 
-    _editor = require("./editor/editor")(_elmHost.find(".page"));
+    _editor = require("./editor/editor")(_elmHost.find(".page"), onKeyDown);
     _editor.setContent(baseText);
     _editor.setInputType(_state.inputType);
     _editor.onReplace(onReplace);
+  }
+
+  function onKeyDown(e) {
+    var ctrlOnly = e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey;
+    var handled = false;
+    switch (e.code) {
+      case "KeyM":
+        if (ctrlOnly) {
+          let newInputType = _state.inputType == "alfa" ? _state.lastHanziInputType : "alfa";
+          _header.$set({ inputType: newInputType });
+          _state.inputType = newInputType;
+          _editor.setInputType(newInputType);
+          handled = true;
+        }
+        break;
+    }
+    return handled;
   }
 
   function onRemoteUpdate(updater) {
