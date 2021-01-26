@@ -36,6 +36,10 @@ jobs:
       working-directory: ./XiePinyin
       run: gulp
 
+    - name: Execute JS tests
+      working-directory: ./XiePinyin
+      run: gulp test
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
