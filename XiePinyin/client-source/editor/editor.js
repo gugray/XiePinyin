@@ -127,7 +127,10 @@ module.exports = (function (elmHost, shortcutHandler) {
     else {
       _elmHiddenInput.prop("disabled", true);
       setCaretBlinkie(false);
-      _composer.show(val, _inputType);
+      let caretTop = _elmHanziCaret.offset().top - _elmHost.offset().top;
+      let caretBottom = _elmPinyinCaret.offset().top - _elmHost.offset().top+ _elmPinyinCaret.height();
+      let caretLeft = _elmHanziCaret.offset().left - _elmHost.offset().left;
+      _composer.show(val, _inputType, caretLeft, caretTop, caretBottom);
     }
   }
 

@@ -17,6 +17,7 @@ module.exports = (function (elmHost) {
   var _elmSuggestions;
   var _evtTarget = new EventTarget();
   var _inputType = null;
+  var _glueBottom = false;
 
   init();
 
@@ -30,16 +31,31 @@ module.exports = (function (elmHost) {
     _elmSuggestions = _elmHost.find(".suggestions");
   }
 
-  function show(initialText, inputType) {
+  function show(initialText, inputType, caretLeft, caretTop, caretBottom) {
     _inputType = inputType;
     _elmInput.val(initialText);
-    _elmHost.find("input").prop("disabled", false);
-    _elmHost.addClass("visible");
-    _elmInput.focus();
-    _elmInput.focus(() => _elmSuggestions.find("span").removeClass("focus"));
+
     _elmSuggestions.addClass("info")
     _elmSuggestions.html(htmlPlaceholder);
     _elmSuggestions = _elmHost.find(".suggestions");
+
+    let cx = caretLeft - _elmHost.width() / 2;
+    if (cx < 0) cx = 0;
+    else if (cx + _elmHost.width() > _elmHost.parent().outerWidth()) cx = _elmHost.parent().outerWidth() - _elmHost.width();
+    let cy = caretBottom;
+    _glueBottom = false;
+    if (cy + _elmHost.height() + _elmHost.parent().offset().top > $(window).height()) {
+      cy = caretTop - _elmHost.height();
+      _glueBottom = true;
+    }
+    _elmHost.css("left", cx + "px");
+    _elmHost.css("top", cy + "px");
+
+    _elmHost.addClass("visible");
+    _elmHost.find("input").prop("disabled", false);
+    _elmInput.focus();
+    _elmInput.focus(() => _elmSuggestions.find("span").removeClass("focus"));
+
     refreshSuggestions();
   }
 
@@ -52,8 +68,14 @@ module.exports = (function (elmHost) {
     _elmSuggestions.data("pinyinSylls", "");
     var prompt = (_elmInput.val());
     if (prompt == "") {
+      let ofsBefore = _elmHost.offset();
+      let heightBefore = _elmHost.height();
       _elmSuggestions.html(htmlPlaceholder);
       _elmSuggestions.addClass("info")
+      if (_glueBottom) {
+        let heightDiff = _elmHost.height() - heightBefore;
+        _elmHost.offset({ top: ofsBefore.top - heightDiff, left: ofsBefore.left });
+      }
       return;
     }
     var req = $.ajax({
@@ -65,6 +87,8 @@ module.exports = (function (elmHost) {
       }
     });
     req.done(function (data) {
+      let ofsBefore = _elmHost.offset();
+      let heightBefore = _elmHost.height();
       _elmSuggestions.removeClass("loading");
       _elmSuggestions.removeClass("info");
       _elmSuggestions.html("");
@@ -79,6 +103,10 @@ module.exports = (function (elmHost) {
       _elmSuggestions.append(elm);
       _elmSuggestions.find("span:first-child").addClass("sel");
       _elmSuggestions.find("span").click(onSuggestionClick);
+      if (_glueBottom) {
+        let heightDiff = _elmHost.height() - heightBefore;
+        _elmHost.offset({ top: ofsBefore.top - heightDiff, left: ofsBefore.left });
+      }
     });
     req.fail(function () {
       _elmSuggestions.removeClass("loading");
