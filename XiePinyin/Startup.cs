@@ -19,6 +19,7 @@ namespace XiePinyin
         readonly ILoggerFactory loggerFactory;
         readonly IConfigurationRoot config;
         Broadcaster broadcaster;
+        DocumentJuggler docJuggler;
 
         public Startup(IWebHostEnvironment env, ILoggerFactory loggerFactory)
         {
@@ -43,7 +44,8 @@ namespace XiePinyin
             // Input conversion
             services.AddSingleton(new Composer(config["sourcesFolder"]));
 
-            var docJuggler = new DocumentJuggler();
+            var dopt = new DocumentJuggler.Options { DocsFolder = config["docsFolder"]  };
+            docJuggler = new DocumentJuggler(dopt);
             var connMgr = new ConnectionManager(docJuggler);
             broadcaster = new Broadcaster(connMgr);
             docJuggler.Broadcaster = broadcaster;
@@ -104,6 +106,7 @@ namespace XiePinyin
         private void onAppStopping()
         {
             if (broadcaster != null) broadcaster.Shutdown();
+            if (docJuggler != null) docJuggler.Shutdown();
         }
     }
 }

@@ -1,16 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
+
+using Newtonsoft.Json;
 
 namespace XiePinyin.Logic
 {
     class Document
     {
+        [JsonProperty("docId")]
         public readonly string DocId;
-        public string Name;
+
+        [JsonProperty("name")]
+        public string Name { get; private set; }
+
+        [JsonProperty("startText")]
         public readonly XieChar[] StartText;
+
+        [JsonIgnore]
         public readonly List<Revision> Revisions = new List<Revision>();
-        public XieChar[] HeadText;
+        
+        [JsonIgnore]
+        public XieChar[] HeadText { get; private set; }
+
+        [JsonIgnore]
+        public bool Dirty = false;
+
+        [JsonIgnore]
+        public DateTime LastChanged = DateTime.UtcNow;
 
         public Document(string docId, string name, XieChar[] startText = null)
         {
@@ -19,6 +37,40 @@ namespace XiePinyin.Logic
             StartText = startText ?? new XieChar[0];
             HeadText = StartText;
             Revisions.Add(new Revision(ChangeSet.CreateIdent(StartText.Length)));
+        }
+
+        public void SaveToFile(string fn)
+        {
+            // We save head: it will be start text upon deserialization
+            // I.e., we don't save history.
+            var toSave = new Document(DocId, Name, HeadText);
+            string json = JsonConvert.SerializeObject(toSave, Formatting.Indented);
+            Dirty = false;
+            // Save in background thready, so caller can move on with their life
+            // This save function gets called from within a lock
+            File.WriteAllTextAsync(fn, json).ContinueWith(t =>
+            {
+                // If so desired, log t.Exception;
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        public static Document LoadFromFile(string fn)
+        {
+            using (var sr = new StreamReader(fn))
+            {
+                JsonSerializer ser = new JsonSerializer();
+                var res = (Document)ser.Deserialize(sr, typeof(Document));
+                res.HeadText = res.StartText;
+                res.Revisions.Add(new Revision(ChangeSet.CreateIdent(res.StartText.Length)));
+                return res;
+            }
+        }
+
+        public void ChangeName(string newName)
+        {
+            Name = newName;
+            Dirty = true;
+            LastChanged = DateTime.UtcNow;
         }
 
         /// <summary>
@@ -38,6 +90,8 @@ namespace XiePinyin.Logic
             }
             Revisions.Add(new Revision(csf));
             HeadText = ChangeSet.Apply(HeadText, csf);
+            Dirty = true;
+            LastChanged = DateTime.UtcNow;
             return csf;
         }
     }

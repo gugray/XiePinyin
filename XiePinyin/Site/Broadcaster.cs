@@ -29,6 +29,11 @@ namespace XiePinyin.Site
             loopEvent.Set();
         }
 
+        public void TerminateSessions(List<string> sessionKeys)
+        {
+
+        }
+
         public void EnqueueChangeForBroadcast(ChangeToBroadcast ctb)
         {
             lock (broadcastQueue)
@@ -45,7 +50,8 @@ namespace XiePinyin.Site
         {
             foreach (var ctb in broadcastQueue)
             {
-                connMgr.BroadcastChange(ctb).Wait();
+                try { connMgr.BroadcastChange(ctb).Wait(); }
+                catch { } // TO-DO: Log when we have, erm, logging
             }
             broadcastQueue.Clear();
         }
@@ -72,7 +78,7 @@ namespace XiePinyin.Site
                 {
                     // TO-DO: Turn back on
                     //connMgr.BeepToAllAsync().Wait();
-                    connMgr.CloseStaleConnections().Wait();
+                    connMgr.CloseNonPingingConnections().Wait();
                     lastBeep = DateTime.UtcNow;
                 }
             }

@@ -8,5 +8,6 @@ namespace XiePinyin.Logic
     internal interface IBroadcaster
     {
         void EnqueueChangeForBroadcast(ChangeToBroadcast ctb);
+        void TerminateSessions(List<string> sessionKeys);
     }
 }

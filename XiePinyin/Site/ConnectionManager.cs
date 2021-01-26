@@ -9,6 +9,14 @@ namespace XiePinyin.Site
 {
     internal class ConnectionManager
     {
+        public class Options
+        {
+            /// <summary>
+            /// We terminate sockets that haven't pinged us or sent other messages for this long.
+            /// </summary>
+            public int SocketInactivitySeconds = 120;
+        }
+
         class ManagedConnection
         {
             public WebSocketConnection WSC;
@@ -16,11 +24,13 @@ namespace XiePinyin.Site
             public string SessionKey = null;
         }
 
+        readonly Options options;
         readonly List<ManagedConnection> conns = new List<ManagedConnection>();
         readonly DocumentJuggler docJuggler;
 
-        public ConnectionManager(DocumentJuggler docJuggler)
+        public ConnectionManager(DocumentJuggler docJuggler, Options options = null)
         {
+            this.options = options ?? new Options();
             this.docJuggler = docJuggler;
         }
 
@@ -31,7 +41,7 @@ namespace XiePinyin.Site
                 conns.Add(new ManagedConnection { WSC = wsc });
                 wsc.MessageReceived += async (sender, msg) => {
                     try { await messageFrom(wsc, msg); }
-                    catch { await wsc.CloseIfNotClosedAsync("We messed up"); }
+                    catch { await wsc.CloseIfNotClosedAsync("We messed up"); } // TO-DO: Log error
                 };
             }
         }
@@ -42,13 +52,13 @@ namespace XiePinyin.Site
             lock (conns)
             {
                 mc = conns.Find(x => x.WSC.Id == wsc.Id);
-                mc.LastActiveUtc = DateTime.UtcNow;
             }
             if (mc == null)
             {
                 await wsc.CloseIfNotClosedAsync("Where did this websocket connection come from?");
                 return;
             }
+            mc.LastActiveUtc = DateTime.UtcNow;
             // Diagnostic: see what happens when message handling code throws
             if (msg == "BOO") throw new Exception("up");
             // Client announcing their session key as the first message
@@ -80,7 +90,7 @@ namespace XiePinyin.Site
             if (msg == "PING")
             {
                 if (!docJuggler.IsSessionOpen(mc.SessionKey))
-                    await wsc.CloseIfNotClosedAsync("This session has expired; you need to type sometimes, you know");
+                    await wsc.CloseIfNotClosedAsync("This is not an open session");
                 return;
             }
             // Client announced a change
@@ -105,6 +115,18 @@ namespace XiePinyin.Site
                 if (mc != null) conns.Remove(mc);
             }
             if (mc != null && mc.SessionKey != null) docJuggler.SessionClosed(mc.SessionKey);
+        }
+
+        public Task TerminateConnections(List<string> sessionKeys)
+        {
+            List<Task> tasks = new List<Task>();
+            lock (conns)
+            {
+                foreach (var x in conns)
+                    if (sessionKeys.Contains(x.SessionKey))
+                        tasks.Add(x.WSC.CloseIfNotClosedAsync("Terminating because session has been idle for too long"));
+            }
+            return Task.WhenAll(tasks);
         }
 
         public Task BeepToAllAsync()
@@ -142,7 +164,11 @@ namespace XiePinyin.Site
             return Task.WhenAll(tasks);
         }
 
-        public Task CloseStaleConnections()
+        /// <summary>
+        /// Terminates sockets that haven't sent any message to us for too long.
+        /// </summary>
+        /// <returns></returns>
+        public Task CloseNonPingingConnections()
         {
             List<Task> tasks = new List<Task>();
             DateTime utcNow = DateTime.UtcNow;
@@ -150,7 +176,7 @@ namespace XiePinyin.Site
             {
                 foreach (var x in conns)
                 {
-                    if (utcNow.Subtract(x.LastActiveUtc) > TimeSpan.FromMinutes(10))
+                    if (utcNow.Subtract(x.LastActiveUtc).TotalSeconds > options.SocketInactivitySeconds)
                         tasks.Add(x.WSC.CloseIfNotClosedAsync("Haven't heard from your in a long time"));
                 }
             }
