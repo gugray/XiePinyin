@@ -18,9 +18,10 @@ input {
 #hiddenInput { position: absolute; top: 0; left: 0; width: 0; height: 0; }
 
 .document {
-  position: absolute; height: 100%; width: 100%;
+  position: absolute; min-height: 100%; width: 100%; padding-top: 78px;
   background-color: #fafafa;
   .header {
+    position: fixed; top: 0; left: 0; width: 100%; z-index: 1;
     height: 78px; border-bottom: 1px solid #ccc; background-color: white;
   }
   &.error {
