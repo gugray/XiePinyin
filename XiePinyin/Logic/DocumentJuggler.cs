@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.IO;
 using Newtonsoft.Json;
+using Serilog;
 
 namespace XiePinyin.Logic
 {
@@ -13,7 +14,7 @@ namespace XiePinyin.Logic
             public string DocsFolder;
             public int UnloadDocAfterSeconds = 600;
             public int SessionRequestExpirySeconds = 10;
-            public int SessionIdleEndSeconds = 3600;
+            public int SessionIdleEndSeconds = 36000; // 3600
         }
 
         class Session
@@ -53,13 +54,15 @@ namespace XiePinyin.Logic
 
         readonly Thread housekeepingThread;
         readonly Options options;
+        readonly ILogger logger;
         bool shuttingDown = false;
 
         internal IBroadcaster Broadcaster;
 
-        public DocumentJuggler(Options options)
+        public DocumentJuggler(Options options, ILogger logger)
         {
             this.options = options;
+            this.logger = logger.ForContext("XieSource", "DocJuggler");
             housekeepingThread = new Thread(housekeep);
             housekeepingThread.Start();
         }
@@ -258,30 +261,46 @@ namespace XiePinyin.Logic
 
         public bool ChangeReceived(string sessionKey, int clientRevisionId, string change)
         {
-            lock (lockObject)
+            try
             {
-                var sess = sessions.Find(x => x.SessionKey == sessionKey);
-                if (sess == null) return false;
-                sess.LastActiveUtc = DateTime.UtcNow;
-                ensureDocLoaded(sess.DocId);
-                var doc = docs.Find(x => x.DocId == sess.DocId);
-                if (doc == null) return false;
-                ChangeSet cs = ChangeSet.FromJson(change);
-                var csToProp = doc.ApplyChange(cs, clientRevisionId);
-                List<string> receivers = new List<string>();
-                foreach (var x in sessions)
-                    if (x.RequestedUtc == DateTime.MinValue && x.DocId == doc.DocId)
-                        receivers.Add(x.SessionKey);
-                Broadcaster.EnqueueChangeForBroadcast(new ChangeToBroadcast
+                lock (lockObject)
                 {
-                    SourceSessionKey = sessionKey,
-                    SourceBaseDocRevisionId = clientRevisionId,
-                    NewDocRevisionId = doc.Revisions.Count - 1,
-                    ReceiverSessionKeys = receivers,
-                    ChangeJson = csToProp.SerializeJson(),
-                });
+                    var sess = sessions.Find(x => x.SessionKey == sessionKey);
+                    if (sess == null) return false;
+                    sess.LastActiveUtc = DateTime.UtcNow;
+                    ensureDocLoaded(sess.DocId);
+                    var doc = docs.Find(x => x.DocId == sess.DocId);
+                    if (doc == null) return false;
+                    ChangeSet cs = ChangeSet.FromJson(change);
+                    logger.Verbose("Change received from session {sessionKey}: client rev {clientRevisionId}, change: \n{change}",
+                        sessionKey, clientRevisionId, change);
+                    if (!cs.IsValid())
+                    {
+                        logger.Warning("Change is invalid. Ending this session.");
+                        return false;
+                    }
+                    var csToProp = doc.ApplyChange(cs, clientRevisionId);
+                    logger.Verbose("Propagating change:\n{change}", change);
+                    List<string> receivers = new List<string>();
+                    foreach (var x in sessions)
+                        if (x.RequestedUtc == DateTime.MinValue && x.DocId == doc.DocId)
+                            receivers.Add(x.SessionKey);
+                    Broadcaster.EnqueueChangeForBroadcast(new ChangeToBroadcast
+                    {
+                        SourceSessionKey = sessionKey,
+                        SourceBaseDocRevisionId = clientRevisionId,
+                        NewDocRevisionId = doc.Revisions.Count - 1,
+                        ReceiverSessionKeys = receivers,
+                        ChangeJson = csToProp.SerializeJson(),
+                    });
+                }
+                return true;
             }
-            return true;
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error in ChangeReceived");
+                throw;
+            }
         }
     }
 }

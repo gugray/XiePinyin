@@ -3,6 +3,8 @@ var $ = require("jquery");
 var localDocData = require("./localdocdata");
 var onlineDocData = require("./onlinedocdata");
 
+const initialInputType = "alfa";
+
 const htmlPage = `
 <div class="document">
   <div class="header"></div>
@@ -44,7 +46,7 @@ module.exports = (function (elmHost, path, navigateTo) {
   var _local = path.startsWith("doc/local-") || path == "doc/sample";
   var _docData = null;
   var _state = {
-    inputType: "simp",
+    inputType: initialInputType,
     lastHanziInputType: "simp",
   };
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 
 using XiePinyin.Logic;
 
@@ -14,10 +15,12 @@ namespace XiePinyin.Site
         readonly Thread thread;
         readonly AutoResetEvent loopEvent = new AutoResetEvent(false);
         readonly List<ChangeToBroadcast> broadcastQueue = new List<ChangeToBroadcast>();
+        readonly ILogger logger;
         bool shuttingDown = false;
 
-        public Broadcaster(ConnectionManager connectionManager)
+        public Broadcaster(ConnectionManager connectionManager, ILogger logger)
         {
+            this.logger = logger;
             connMgr = connectionManager;
             thread = new Thread(threadFun);
             thread.Start();

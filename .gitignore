@@ -2,6 +2,7 @@ ServiceAccountKey*
 
 _sources
 _docs
+_logs
 
 client-build
 client-vue-build

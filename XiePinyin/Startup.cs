@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using Serilog;
 
 using XiePinyin.Logic;
 using XiePinyin.Site;
@@ -16,15 +16,13 @@ namespace XiePinyin
     public class Startup
     {
         readonly IWebHostEnvironment env;
-        readonly ILoggerFactory loggerFactory;
         readonly IConfigurationRoot config;
         Broadcaster broadcaster;
         DocumentJuggler docJuggler;
 
-        public Startup(IWebHostEnvironment env, ILoggerFactory loggerFactory)
+        public Startup(IWebHostEnvironment env)
         {
             this.env = env;
-            this.loggerFactory = loggerFactory;
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json", optional: false)
@@ -37,6 +35,8 @@ namespace XiePinyin
 
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddSingleton(Log.Logger);
+
             // MVC for serving pages and REST
             services.AddMvc(x => { x.EnableEndpointRouting = true; }).AddRazorRuntimeCompilation();
             // Configuration singleton
@@ -45,9 +45,9 @@ namespace XiePinyin
             services.AddSingleton(new Composer(config["sourcesFolder"]));
 
             var dopt = new DocumentJuggler.Options { DocsFolder = config["docsFolder"]  };
-            docJuggler = new DocumentJuggler(dopt);
-            var connMgr = new ConnectionManager(docJuggler);
-            broadcaster = new Broadcaster(connMgr);
+            docJuggler = new DocumentJuggler(dopt, Log.Logger);
+            var connMgr = new ConnectionManager(docJuggler, Log.Logger);
+            broadcaster = new Broadcaster(connMgr, Log.Logger);
             docJuggler.Broadcaster = broadcaster;
             services.AddSingleton(docJuggler);
             services.AddSingleton(connMgr);
@@ -81,6 +81,8 @@ namespace XiePinyin
             };
             // Static files (JS, CSS etc.) served directly.
             app.UseStaticFiles(sfo);
+
+            app.UseMiddleware<ErrorHandlerMiddleware>();
 
             WebSocketMiddlewareOptions wsmo = new Site.WebSocketMiddlewareOptions
             {

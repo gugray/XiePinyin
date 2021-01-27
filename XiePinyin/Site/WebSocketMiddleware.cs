@@ -35,8 +35,9 @@ namespace XiePinyin.Site
             connMgr.AddConnection(webSocketConnection);
             await webSocketConnection.ReceiveMessagesUntilCloseAsync();
             if (webSocket.State != WebSocketState.Closed)
-                await webSocket.CloseAsync(webSocketConnection.CloseStatus.Value,
-                    webSocketConnection.CloseStatusDescription, CancellationToken.None);
+                await webSocket.CloseAsync(webSocketConnection.CloseStatus ?? WebSocketCloseStatus.NormalClosure,
+                    webSocketConnection.CloseStatusDescription ?? "",
+                    CancellationToken.None);
             connMgr.RemoveConnection(webSocketConnection.Id);
         }
 

@@ -2,6 +2,9 @@
 var $ = require("jquery");
 var CS = require('./editor/changeset');
 
+const pingInterval = 30000;
+const sendChangeInterval = 5000;
+
 module.exports = (function (sessionKey) {
 
   var _sessionKey = sessionKey
@@ -39,6 +42,7 @@ module.exports = (function (sessionKey) {
     clearInterval(_sendChangeInterval);
     _pingInterval = null;
     _sendChangeInterval = null;
+    _tragedyCB = null;
     _ws.close();
     _wsOpen = false;
     _ws = null;
@@ -59,6 +63,7 @@ module.exports = (function (sessionKey) {
       _startCB = null;
       cb(closeReason);
     }
+    else shoutTragedy(closeReason);
   }
 
   function onSocketError() {
@@ -85,8 +90,8 @@ module.exports = (function (sessionKey) {
         baseText: _baseText,
       });
     }
-    _pingInterval = setInterval(doPing, 15000);
-    _sendChangeInterval = setInterval(doSendChange, 500);
+    _pingInterval = setInterval(doPing, pingInterval);
+    _sendChangeInterval = setInterval(doSendChange, sendChangeInterval);
   }
 
   function processUpdate(detail) {

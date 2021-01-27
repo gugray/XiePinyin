@@ -83,7 +83,7 @@
 			url: "/api/doc/delete/",
 			type: "POST",
 			data: {
-				id: id,
+				docId: id,
 			}
 		});
 		req.done(function (data) {

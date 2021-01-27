@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Serilog;
 
 using XiePinyin.Logic;
 
@@ -14,7 +15,7 @@ namespace XiePinyin.Site
             /// <summary>
             /// We terminate sockets that haven't pinged us or sent other messages for this long.
             /// </summary>
-            public int SocketInactivitySeconds = 120;
+            public int SocketInactivitySeconds = 12000; // 120
         }
 
         class ManagedConnection
@@ -24,12 +25,14 @@ namespace XiePinyin.Site
             public string SessionKey = null;
         }
 
+        readonly ILogger logger;
         readonly Options options;
         readonly List<ManagedConnection> conns = new List<ManagedConnection>();
         readonly DocumentJuggler docJuggler;
 
-        public ConnectionManager(DocumentJuggler docJuggler, Options options = null)
+        public ConnectionManager(DocumentJuggler docJuggler, ILogger logger, Options options = null)
         {
+            this.logger = logger;
             this.options = options ?? new Options();
             this.docJuggler = docJuggler;
         }
@@ -99,7 +102,7 @@ namespace XiePinyin.Site
                 int ix = msg.IndexOf(' ', 7);
                 int revId = int.Parse(msg.Substring(7, ix - 7));
                 if (!docJuggler.ChangeReceived(mc.SessionKey, revId, msg.Substring(ix + 1)))
-                    await wsc.CloseIfNotClosedAsync("We don't like this change; your session might have expired, or the doc may be gone");
+                    await wsc.CloseIfNotClosedAsync("We don't like this change; your session might have expired, the doc may be gone, or the change may be invalid.");
                 return;
             }
             // Anything else: No.
