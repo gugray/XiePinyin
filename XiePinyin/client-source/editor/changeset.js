@@ -216,7 +216,7 @@ module.exports = (function () {
         let vala = a.items[ixa];
         let valb = b.items[ixb];
         if (vala == valb) {
-          res.items.push(vala);
+          res.items.push(ixa);
           ++ixa; ++ixb;
           continue;
         }

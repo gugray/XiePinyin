@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace XiePinyin.Logic
 {
+    [DebuggerDisplay("{DebugStr}")]
     class ChangeSet
     {
         [JsonProperty("lengthBefore")]
@@ -18,6 +20,12 @@ namespace XiePinyin.Logic
         /// </summary>
         [JsonProperty("items")]
         public readonly List<object> Items = new List<object>();
+
+        [JsonIgnore]
+        public string DebugStr
+        {
+            get { return ToDiagStr(); }
+        }
 
         public static ChangeSet CreateIdent(int length)
         {
@@ -50,6 +58,41 @@ namespace XiePinyin.Logic
         public string SerializeJson()
         {
             return JsonConvert.SerializeObject(this);
+        }
+
+        public static ChangeSet FromDiagStr(string str)
+        {
+            var markIx = str.IndexOf('>');
+            var lengthBeforeStr = str.Substring(0, markIx);
+            int lengthBefore = int.Parse(lengthBeforeStr);
+            if (markIx == str.Length - 1)
+                return new ChangeSet { LengthBefore = lengthBefore, LengthAfter = 0 };
+            var parts = str.Substring(markIx + 1).Split(',');
+            var res = new ChangeSet { LengthBefore = lengthBefore, LengthAfter = parts.Length };
+            foreach (string s in parts)
+            {
+                int val;
+                if (int.TryParse(s, out val)) res.Items.Add(val);
+                else res.Items.Add(new XieChar(s));
+            }
+            return res;
+        }
+
+        public string ToDiagStr()
+        {
+            var res = LengthBefore.ToString();
+            res += '>';
+            for (int i = 0; i < Items.Count; ++i)
+            {
+                if (i != 0) res += ',';
+                if (Items[i] is XieChar)
+                {
+                    var hanzi = (Items[i] as XieChar).Hanzi;
+                    res += hanzi == "\n" ? "\\n" : hanzi;
+                }
+                else res += ((int)Items[i]).ToString();
+            }
+            return res;
         }
 
         public bool IsValid()
@@ -175,6 +218,7 @@ namespace XiePinyin.Logic
                 throw new ArgumentException("Two change sets must have same LengthBefore.");
             ChangeSet res = new ChangeSet { LengthBefore = a.LengthAfter };
             int ixa = 0, ixb = 0;
+            //int ofs = 0;
             while (ixa < a.Items.Count || ixb < b.Items.Count)
             {
                 if (ixa == a.Items.Count)
@@ -187,6 +231,7 @@ namespace XiePinyin.Logic
                 if (ixb == b.Items.Count)
                 {
                     // Insertions in A become retained characters
+                    //if (a.Items[ixa] is XieChar) res.Items.Add(ixa + ofs);
                     if (a.Items[ixa] is XieChar) res.Items.Add(ixa);
                     ++ixa;
                     continue;
@@ -201,7 +246,8 @@ namespace XiePinyin.Logic
                     int valb = (int)b.Items[ixb];
                     if (vala == valb)
                     {
-                        res.Items.Add(vala);
+                        //res.Items.Add(vala + ofs);
+                        res.Items.Add(ixa);
                         ++ixa; ++ixb;
                         continue;
                     }
