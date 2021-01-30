@@ -2,8 +2,10 @@
 var $ = require("jquery");
 var CS = require('./editor/changeset');
 
-const pingInterval = 30000;
-const sendChangeInterval = 5000;
+//const pingInterval = 30000;
+//const sendChangeInterval = 5000;
+const pingInterval = 15000;
+const sendChangeInterval = 500;
 
 module.exports = (function (sessionKey) {
 
@@ -18,6 +20,7 @@ module.exports = (function (sessionKey) {
   var _baseText = null;
   var _revisionId = -1;
   var _receivedChanges = null;
+  var _peerSelections = []; // Selections of peers, always in head text, ie, _baseText + _receivedChanges
   var _sentChanges = null;
   var _sentChangesFromId = -1;
   var _localChanges = null;
@@ -84,6 +87,7 @@ module.exports = (function (sessionKey) {
     _name = data.name;
     _baseText = data.text;
     _revisionId = data.revisionId;
+    _peerSelections = data.peerSelections;
     if (_startCB != null) {
       let cb = _startCB;
       _startCB = null;
@@ -93,10 +97,31 @@ module.exports = (function (sessionKey) {
         name: _name,
         baseText: _baseText,
         sel: { start: _displaySel.start, end: _displaySel.end, caretAtStart: _displaySel.caretAtStart },
+        peerSelections: _peerSelections,
       });
     }
     _pingInterval = setInterval(doPing, pingInterval);
     _sendChangeInterval = setInterval(doSendChange, sendChangeInterval);
+  }
+
+  function forwardPeerSelections() {
+    let poss = [];
+    for (const ps of _peerSelections)
+      poss = [...poss, ps.start, ps.end];
+    if (_sentChanges != null) CS.forwardPositions(_sentChanges, poss);
+    if (_localChanges != null) CS.forwardPositions(_localChanges, poss);
+    let res = [];
+    for (let i = 0; i < _peerSelections.length; ++i) {
+      const ps = _peerSelections[i];
+      if (ps.sessionKey == _sessionKey) continue;
+      res.push({
+        sessionKey: ps.sessionKey,
+        start: poss[2 * i],
+        end: poss[2 * i + 1],
+        caretAtStart: ps.caretAtStart,
+      });
+    }
+    return res;
   }
 
   function processUpdate(detail) {
@@ -106,21 +131,21 @@ module.exports = (function (sessionKey) {
     const senderKey = detail.substring(ix1 + 1, ix2);
     let ix3 = detail.indexOf(" ", ix2 + 1);
     if (ix3 == -1) ix3 = detail.length;
-    const senderNewSel = JSON.parse(detail.substring(ix2 + 1, ix3));
+    _peerSelections = JSON.parse(detail.substring(ix2 + 1, ix3));
     const cs = ix3 < detail.length ? JSON.parse(detail.substring(ix3 + 1)) : null;
     // If there is not change set: just update this peer's selection/cursor
     if (cs == null) {
       // *MUST* be for current revision
       if (newRevisionId != _revisionId) {
-        shoutTragedy("Received peer selection change for revision " + newRevisionId + " but our current revision is " + _revisionId);
+        shoutTragedy("Received selection updated for revision " + newRevisionId + " but our current revision is " + _revisionId);
         return;
       }
-      // TO-DO
+      _updateCB(null, forwardPeerSelections());
       return;
     }
     // *MUST* be for next revision in line
     if (newRevisionId != _revisionId + 1) {
-      shoutTragedy("Received update to next revision " + newRevisionId + " but our current revision is " + _revisionId);
+      shoutTragedy("Received changeset to next revision " + newRevisionId + " but our current revision is " + _revisionId);
       return;
     }
     // Process change set
@@ -150,6 +175,7 @@ module.exports = (function (sessionKey) {
     _sentChanges = newSentChanges;
     _localChanges = newLocalChanges;
     _revisionId = newRevisionId;
+
     _updateCB(function (currText, selStart, selEnd) {
       let poss = [selStart, selEnd];
       let newText = CS.apply(currText, editorChanges, poss);
@@ -158,7 +184,7 @@ module.exports = (function (sessionKey) {
         selStart: poss[0],
         selEnd: poss[1],
       };
-    });
+    }, forwardPeerSelections());
   }
 
   function processAckChange(detail) {
@@ -230,6 +256,7 @@ module.exports = (function (sessionKey) {
       _localChanges = CS.addReplace(_localChanges, start, end, newText);
       _displaySel = { start: start + newText.length, end: start + newText.length, caretAtStart: false };
       _displaySelChangedLocally = true;
+      return forwardPeerSelections();
     }
     catch (e) {
       shoutTragedy("An exception occurred while processing change from the editor: " + e);

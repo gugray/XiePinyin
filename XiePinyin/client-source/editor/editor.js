@@ -341,6 +341,58 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmPinyinCaret.css("top",  pinyinCaretY + "px");
   }
 
+  function setPeerSelections(pss) {
+    _elmHost.find(".caret.peer").remove();
+    let elmHanziCarets = [], elmPinyinCarets = [];
+    for (let i = 0; i < pss.length; ++i) {
+      let hc = $(htmlHanziCaret);
+      hc.addClass("peer");
+      hc.addClass("peer" + (i % 5 + 1));
+      hc.removeClass("hidden");
+      elmHanziCarets.push(hc);
+      let pc = $(htmlPinyinCaret);
+      pc.addClass("peer");
+      pc.addClass("peer" + (i % 5 + 1));
+      pc.removeClass("hidden");
+      elmPinyinCarets.push(pc);
+      pss[i].hanziCaretX = 0;
+      pss[i].hanziCaretY = 0;
+      pss[i].pinyinCaretX = 0;
+      pss[i].pinyinCaretY = 0;
+      pss[i].ix = pss[i].caretAtStart ? pss[i].start : pss[i].end;
+    }
+
+    var ix = 0;
+    var wordCount = _elmHost.find(".word").length;
+    for (var i = 0; i < wordCount; ++i) {
+      var elmWord = _elmHost.find(".word").eq(i);
+      var spanCount = elmWord.find(".hanzi>span").length;
+      for (var j = 0; j < spanCount; ++j) {
+        var elmHanzi = elmWord.find(".hanzi>span").eq(j);
+        var elmPinyin = elmWord.find(".pinyin>span").eq(j);
+        for (let k = 0; k < pss.length; ++k) {
+          if (ix == pss[k].ix) {
+            pss[k].hanziCaretY = elmHanzi.offset().top - _elmHost.offset().top;
+            if (elmPinyin.length != 0) pss[k].pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
+            else pss[k].pinyinCaretY = pss[k].hanziCaretY + _elmHanziCaret.height();
+            pss[k].hanziCaretX = elmHanzi.offset().left - _elmHost.offset().left - 2;
+            if (elmPinyin.length != 0) pss[k].pinyinCaretX = elmPinyin.offset().left - _elmHost.offset().left - 2;
+            else pss[k].pinyinCaretX = pss[k].hanziCaretX;
+          }
+        }
+        if (elmHanzi.hasClass("x")) ++ix;
+      }
+    }
+    for (let i = 0; i < pss.length; ++i) {
+      elmHanziCarets[i].css("left", pss[i].hanziCaretX + "px");
+      elmHanziCarets[i].css("top", pss[i].hanziCaretY + "px");
+      elmPinyinCarets[i].css("left", pss[i].pinyinCaretX + "px");
+      elmPinyinCarets[i].css("top", pss[i].pinyinCaretY + "px");
+      _elmHost.prepend(elmHanziCarets[i]);
+      _elmHost.prepend(elmPinyinCarets[i]);
+    }
+  }
+
   function onReplace(handler) {
     _elmHost[0].addEventListener("onReplace", handler);
   }
@@ -351,6 +403,7 @@ module.exports = (function (elmHost, shortcutHandler) {
 
   return {
     setContent,
+    setPeerSelections,
     getContent,
     getSel,
     setInputType,

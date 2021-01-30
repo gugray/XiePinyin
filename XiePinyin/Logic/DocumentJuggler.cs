@@ -27,12 +27,26 @@ namespace XiePinyin.Logic
             public DateTime LastActiveUtc = DateTime.UtcNow;
             // Time the session was requested. Equals DateTime.MinValue once session has started.
             public DateTime RequestedUtc = DateTime.UtcNow;
+            // This editor's selection, as it applies to the current head text.
+            public Selection Selection = null;
             // Ctor: init values.
             public Session(string sessionKey, string docId)
             {
                 SessionKey = sessionKey;
                 DocId = docId;
             }
+        }
+
+        class SessionSelection
+        {
+            [JsonProperty("sessionKey")]
+            public string SessionKey;
+            [JsonProperty("start")]
+            public int Start;
+            [JsonProperty("end")]
+            public int End;
+            [JsonProperty("caretAtStart")]
+            public bool CaretAtStart;
         }
 
         class SessionStartMessage
@@ -43,6 +57,8 @@ namespace XiePinyin.Logic
             public int RevisionId;
             [JsonProperty("text")]
             public XieChar[] Text;
+            [JsonProperty("peerSelections")]
+            public List<SessionSelection> PeerSelections;
         }
 
         const int saveFunCycleMsec = 200;
@@ -234,8 +250,10 @@ namespace XiePinyin.Logic
                     Name = doc.Name,
                     RevisionId = doc.Revisions.Count - 1,
                     Text = doc.HeadText,
+                    PeerSelections = getDocSels(doc.DocId),
                 };
                 sess.RequestedUtc = DateTime.MinValue;
+                sess.Selection = new Selection { Start = 0, End = 0 };
             }
             return JsonConvert.SerializeObject(ssm);
         }
@@ -259,6 +277,23 @@ namespace XiePinyin.Logic
             }
         }
 
+        List<SessionSelection> getDocSels(string docId)
+        {
+            var ssels = new List<SessionSelection>();
+            foreach (var sess in sessions)
+            {
+                if (sess.DocId != docId || sess.Selection == null) continue;
+                ssels.Add(new SessionSelection
+                {
+                    SessionKey = sess.SessionKey,
+                    Start = sess.Selection.Start,
+                    End = sess.Selection.End,
+                    CaretAtStart = sess.Selection.CaretAtStart,
+                });
+            }
+            return ssels;
+        }
+
         public bool ChangeReceived(string sessionKey, int clientRevisionId, string selStr, string changeStr)
         {
             try
@@ -271,8 +306,8 @@ namespace XiePinyin.Logic
                     ensureDocLoaded(sess.DocId);
                     var doc = docs.Find(x => x.DocId == sess.DocId);
                     if (doc == null) return false;
-                    Selection sel = JsonConvert.DeserializeObject<Selection>(selStr);
-                    ChangeSet cs = changeStr != null ? ChangeSet.FromJson(changeStr) : null; ;
+                    var sel = JsonConvert.DeserializeObject<Selection>(selStr);
+                    ChangeSet cs = changeStr != null ? ChangeSet.FromJson(changeStr) : null;
                     logger.Verbose("Change received from session {sessionKey}: client rev {clientRevisionId}, sel: {sel} , change: \n{change}",
                         sessionKey, clientRevisionId, selStr, changeStr);
 
@@ -293,8 +328,9 @@ namespace XiePinyin.Logic
                     // This is only about a changed selection
                     if (cs == null)
                     {
-                        ctb.SelJson = JsonConvert.SerializeObject(doc.ForwardSelection(sel, clientRevisionId));
-                        logger.Verbose("Propagating change: sel: {sel}", ctb.SelJson);
+                        sess.Selection = doc.ForwardSelection(sel, clientRevisionId);
+                        ctb.SelJson = JsonConvert.SerializeObject(getDocSels(sess.DocId));
+                        logger.Verbose("Propagating selection update: {sels}", ctb.SelJson);
                     }
                     // We got us a real change set
                     else
@@ -305,12 +341,11 @@ namespace XiePinyin.Logic
                             return false;
                         }
                         ChangeSet csToProp;
-                        Selection selToProp;
-                        doc.ApplyChange(cs, sel, clientRevisionId, out csToProp, out selToProp);
+                        doc.ApplyChange(cs, sel, clientRevisionId, out csToProp, out sess.Selection);
                         ctb.NewDocRevisionId = doc.Revisions.Count - 1;
-                        ctb.SelJson = JsonConvert.SerializeObject(selToProp);
+                        ctb.SelJson = JsonConvert.SerializeObject(getDocSels(sess.DocId));
                         ctb.ChangeJson = csToProp.SerializeJson();
-                        logger.Verbose("Propagating change: sel: {sel}; changeset:\n{change}", ctb.SelJson, ctb.ChangeJson);
+                        logger.Verbose("Propagating changeset and selection update:\n{change}\n{sels}", ctb.ChangeJson, ctb.SelJson);
                     }
                     // Showtime!
                     Broadcaster.EnqueueChangeForBroadcast(ctb);

@@ -91,7 +91,7 @@ module.exports = (function (elmHost, path, navigateTo) {
       _docData = onlineDocData(data.data);
       _docData.startSession(function (error, loadData) {
         if (error) initError("Failed to start session; the server said: " + error);
-        else init(loadData.name, loadData.baseText, loadData.sel);
+        else init(loadData.name, loadData.baseText, loadData.sel, loadData.peerSelections);
       }, onConnectionTragedy, onRemoteUpdate);
     });
     req.fail(function () {
@@ -99,7 +99,7 @@ module.exports = (function (elmHost, path, navigateTo) {
     });
   }
 
-  function init(name, baseText, sel) {
+  function init(name, baseText, sel, peerSelections) {
     _elmHost.empty();
     _elmHost.html(htmlPage);
     _header = new Comps.EditorHeader({
@@ -121,6 +121,7 @@ module.exports = (function (elmHost, path, navigateTo) {
 
     _editor = require("./editor/editor")(_elmHost.find(".page"), onKeyDown);
     _editor.setContent(baseText, sel);
+    _editor.setPeerSelections(peerSelections);
     _editor.setInputType(_state.inputType);
     _editor.onReplace(onReplace);
     _editor.onSelChange(onSelChange);
@@ -143,15 +144,19 @@ module.exports = (function (elmHost, path, navigateTo) {
     return handled;
   }
 
-  function onRemoteUpdate(updater) {
-    let text = _editor.getContent();
-    let sel = _editor.getSel();
-    let updated = updater(text, sel.start, sel.end);
-    _editor.setContent(updated.text, { start: updated.selStart, end: updated.selEnd });
+  function onRemoteUpdate(updater, peerSelections) {
+    if (updater != null) {
+      let text = _editor.getContent();
+      let sel = _editor.getSel();
+      let updated = updater(text, sel.start, sel.end);
+      _editor.setContent(updated.text, { start: updated.selStart, end: updated.selEnd });
+    }
+    _editor.setPeerSelections(peerSelections);
   }
 
   function onReplace(e) {
-    _docData.processEdit(e.detail.start, e.detail.end, e.detail.newText);
+    let peerSelections = _docData.processEdit(e.detail.start, e.detail.end, e.detail.newText);
+    _editor.setPeerSelections(peerSelections);
   }
 
   function onSelChange(e) {

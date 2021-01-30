@@ -105,6 +105,33 @@ module.exports = (function () {
     return items;
   }
 
+  function forwardPositions(cs, poss) {
+    let pp = [];
+    if (poss) pp = [...poss];
+    let length = 0;
+    for (let i = 0; i < cs.items.length; ++i) {
+      if (typeof cs.items[i] === "object") ++length;
+      else {
+        let ix = cs.items[i];
+        for (let j = 0; j < pp.length; ++j) {
+          if (pp[j] == -1) continue;
+          if (ix + 1 == pp[j]) {
+            poss[j] = length + 1;
+            pp[j] = -1;
+          }
+          else if (ix >= pp[j]) {
+            poss[j] = length;
+            pp[j] = -1;
+          }
+        }
+        ++length;
+      }
+    }
+    for (let j = 0; j < pp.length; ++j)
+      if (pp[j] != -1)
+        poss[j] = length;
+  }
+
   function addReplace(cs, start, end, newText) {
     if (start < 0 || end < start)
       throw "bad values; expected: start >= 0 and end >= start";
@@ -268,6 +295,7 @@ module.exports = (function () {
     writeDiag,
     addReplace,
     apply,
+    forwardPositions,
     chrCmp,
     isValid,
     compose,

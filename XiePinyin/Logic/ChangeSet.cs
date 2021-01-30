@@ -124,6 +124,39 @@ namespace XiePinyin.Logic
             return items.ToArray();
         }
 
+        public static void ForwardPositions(ChangeSet cs, int[] poss)
+        {
+            var pp = new List<int>(poss.Length);
+            foreach (int x in poss) pp.Add(x);
+            int length = 0;
+            for (int i = 0; i < cs.Items.Count; ++i)
+            {
+                if (cs.Items[i] is XieChar) ++length;
+                else
+                {
+                    int ix = (int)cs.Items[i];
+                    for (int j = 0; j < pp.Count; ++j)
+                    {
+                        if (pp[j] == -1) continue;
+                        if (ix + 1 == pp[j])
+                        {
+                            poss[j] = length + 1;
+                            pp[j] = -1;
+                        }
+                        else if (ix >= pp[j])
+                        {
+                            poss[j] = length;
+                            pp[j] = -1;
+                        }
+                    }
+                    ++length;
+                }
+            }
+            for (int j = 0; j < pp.Count; ++j)
+                if (pp[j] != -1)
+                    poss[j] = length;
+        }
+
         public static ChangeSet Compose(ChangeSet a, ChangeSet b)
         {
             if (a.LengthAfter != b.LengthBefore)

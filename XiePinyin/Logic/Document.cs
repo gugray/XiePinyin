@@ -81,8 +81,10 @@ namespace XiePinyin.Logic
         /// <returns>Selection forwarded to current head.</returns>
         public Selection ForwardSelection(Selection sel, int baseRevId)
         {
-            // TO-DO: Calculate forward of selection
-            return sel;
+            var poss = new int[] { sel.Start, sel.End };
+            for (int i = baseRevId + 1; i < Revisions.Count; ++i)
+                ChangeSet.ForwardPositions(Revisions[i].ChangeSet, poss);
+            return new Selection { Start = poss[0], End = poss[1], CaretAtStart = sel.CaretAtStart };
         }
 
         /// <summary>
@@ -92,22 +94,22 @@ namespace XiePinyin.Logic
         /// <param name="baseRevId">Client's head revision ID (latest revision they are aware of; this is what the change is based on).</param>
         /// <param name="csToProp">Computed new changeset added to the end of document's master revision list.</param>
         /// <param name="selToProp">Computed new selection, forwarded head text.</param>
-        public void ApplyChange(ChangeSet cs, Selection sel, int baseRevId, out ChangeSet csToProp, out Selection selToProp)
+        public void ApplyChange(ChangeSet cs, Selection sel, int baseRevId, out ChangeSet csToProp, out Selection selInHead)
         {
             // Compute sequence of follows so we get changeset that applies to our latest revision
             // Server's head might be ahead of the revision known to the client, which is what this CS is based on.
             csToProp = cs;
+            var poss = new int[] { sel.Start, sel.End };
             for (int i = baseRevId + 1; i < Revisions.Count; ++i)
             {
                 csToProp = ChangeSet.Follow(Revisions[i].ChangeSet, csToProp);
+                ChangeSet.ForwardPositions(Revisions[i].ChangeSet, poss);
             }
             Revisions.Add(new Revision(csToProp));
             HeadText = ChangeSet.Apply(HeadText, csToProp);
             Dirty = true;
             LastChanged = DateTime.UtcNow;
-
-            // TO-DO: Calculate forward of selection
-            selToProp = sel;
+            selInHead = new Selection { Start = poss[0], End = poss[1], CaretAtStart = sel.CaretAtStart };
         }
     }
 }
