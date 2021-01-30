@@ -21,6 +21,8 @@ module.exports = (function (sessionKey) {
   var _sentChanges = null;
   var _sentChangesFromId = -1;
   var _localChanges = null;
+  var _displaySel = null;
+  var _displaySelChangedLocally = false;
   var _sendChangeInterval = null;
 
   function startSession(cbStart, cbTragedy, cbUpdate) {
@@ -85,9 +87,12 @@ module.exports = (function (sessionKey) {
     if (_startCB != null) {
       let cb = _startCB;
       _startCB = null;
+      _displaySel = { start: 0, end: 0, caretAtStart: false };
+      _displaySelChangedLocally = false;
       cb(null, {
         name: _name,
         baseText: _baseText,
+        sel: { start: _displaySel.start, end: _displaySel.end, caretAtStart: _displaySel.caretAtStart },
       });
     }
     _pingInterval = setInterval(doPing, pingInterval);
@@ -95,13 +100,30 @@ module.exports = (function (sessionKey) {
   }
 
   function processUpdate(detail) {
-    const ix = detail.indexOf(" ");
-    const newRevisionId = parseInt(detail.substring(0, ix), 10);
+    const ix1 = detail.indexOf(" ");
+    const newRevisionId = parseInt(detail.substring(0, ix1), 10);
+    const ix2 = detail.indexOf(" ", ix1 + 1);
+    const senderKey = detail.substring(ix1 + 1, ix2);
+    let ix3 = detail.indexOf(" ", ix2 + 1);
+    if (ix3 == -1) ix3 = detail.length;
+    const senderNewSel = JSON.parse(detail.substring(ix2 + 1, ix3));
+    const cs = ix3 < detail.length ? JSON.parse(detail.substring(ix3 + 1)) : null;
+    // If there is not change set: just update this peer's selection/cursor
+    if (cs == null) {
+      // *MUST* be for current revision
+      if (newRevisionId != _revisionId) {
+        shoutTragedy("Received peer selection change for revision " + newRevisionId + " but our current revision is " + _revisionId);
+        return;
+      }
+      // TO-DO
+      return;
+    }
+    // *MUST* be for next revision in line
     if (newRevisionId != _revisionId + 1) {
       shoutTragedy("Received update to next revision " + newRevisionId + " but our current revision is " + _revisionId);
       return;
     }
-    const cs = JSON.parse(detail.substring(ix + 1));
+    // Process change set
     let newReceivedChanges = _receivedChanges == null ? cs : CS.compose(_receivedChanges, cs);
     let newSentChanges = null;
     if (_sentChanges != null) newSentChanges = CS.follow(cs, _sentChanges);
@@ -113,7 +135,6 @@ module.exports = (function (sessionKey) {
       let x = CS.follow(sentie, cs);
       newLocalChanges = CS.follow(x, _localChanges);
     }
-
     // Changeset to update view (editor content)
     let sentie = _sentChanges;
     if (sentie == null && _receivedChanges != null) sentie = CS.makeIdent(_receivedChanges.lengthAfter);
@@ -130,11 +151,12 @@ module.exports = (function (sessionKey) {
     _localChanges = newLocalChanges;
     _revisionId = newRevisionId;
     _updateCB(function (currText, selStart, selEnd) {
-      let newText = CS.apply(currText, editorChanges);
+      let poss = [selStart, selEnd];
+      let newText = CS.apply(currText, editorChanges, poss);
       return {
         text: newText,
-        selStart: 0,
-        selEnd: 0,
+        selStart: poss[0],
+        selEnd: poss[1],
       };
     });
   }
@@ -180,7 +202,7 @@ module.exports = (function (sessionKey) {
   }
 
   function doSendChange() {
-    if (_sentChanges != null || _localChanges == null) return;
+    if (_sentChanges != null || (_localChanges == null && !_displaySelChangedLocally)) return;
     if (!_ws || !_wsOpen) {
       shoutTragedy("Trying to send changes but socket is not open.");
       return;
@@ -188,8 +210,10 @@ module.exports = (function (sessionKey) {
     try {
       _sentChanges = _localChanges;
       _localChanges = null;
+      _displaySelChangedLocally = false;
       _sentChangesFromId = _revisionId;
-      let msg = "CHANGE " + _revisionId + " " + JSON.stringify(_sentChanges);
+      let msg = "CHANGE " + _revisionId + " " + JSON.stringify(_displaySel);
+      if (_sentChanges != null) msg += " " + JSON.stringify(_sentChanges);
       _ws.send(msg);
     }
     catch (e) {
@@ -204,10 +228,17 @@ module.exports = (function (sessionKey) {
         else _localChanges = CS.makeIdent(_receivedChanges == null ? _baseText.length : _receivedChanges.lengthAfter);
       }
       _localChanges = CS.addReplace(_localChanges, start, end, newText);
+      _displaySel = { start: start + newText.length, end: start + newText.length, caretAtStart: false };
+      _displaySelChangedLocally = true;
     }
     catch (e) {
       shoutTragedy("An exception occurred while processing change from the editor: " + e);
     }
+  }
+
+  function processSelChange(newSel) {
+    _displaySel = { start: newSel.start, end: newSel.end, caretAtStart: newSel.caretAtStart };
+    _displaySelChangedLocally = true;
   }
 
   function shoutTragedy(msg) {
@@ -219,5 +250,6 @@ module.exports = (function (sessionKey) {
     startSession,
     closeSession,
     processEdit,
+    processSelChange,
   };
 });

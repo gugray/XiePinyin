@@ -101,6 +101,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     else {
       _sel.start = newSel.start;
       _sel.end = newSel.end;
+      _sel.caretAtStart = newSel.caretAtStart;
     }
     updateSelection();
   }
@@ -194,6 +195,17 @@ module.exports = (function (elmHost, shortcutHandler) {
     };
   }
 
+  function broadcastSelChange() {
+    let evt = new CustomEvent("onSelChange", {
+      detail: {
+        start: _sel.start,
+        end: _sel.end,
+        caretAtStart: _sel.caretAtStart,
+      }
+    });
+    _elmHost[0].dispatchEvent(evt);
+  }
+
   function replaceSel(chars) {
     let evt = new CustomEvent("onReplace", {
       detail: {
@@ -250,6 +262,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     }
     updateSelection();
     setCaretBlinkie(true, true);
+    broadcastSelChange();
   }
 
   function handleRight(ctrlKey, shiftKey) {
@@ -283,6 +296,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     }
     updateSelection();
     setCaretBlinkie(true, true);
+    broadcastSelChange();
   }
 
   function updateSelection() {
@@ -331,11 +345,16 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmHost[0].addEventListener("onReplace", handler);
   }
 
+  function onSelChange(handler) {
+    _elmHost[0].addEventListener("onSelChange", handler);
+  }
+
   return {
     setContent,
     getContent,
     getSel,
     setInputType,
     onReplace,
+    onSelChange,
   };
 });

@@ -11,6 +11,7 @@ namespace XiePinyin.Logic
         public int SourceBaseDocRevisionId;
         public int NewDocRevisionId;
         public List<string> ReceiverSessionKeys;
+        public string SelJson;
         public string ChangeJson;
     }
 }

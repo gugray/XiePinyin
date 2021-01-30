@@ -259,7 +259,7 @@ namespace XiePinyin.Logic
             }
         }
 
-        public bool ChangeReceived(string sessionKey, int clientRevisionId, string change)
+        public bool ChangeReceived(string sessionKey, int clientRevisionId, string selStr, string changeStr)
         {
             try
             {
@@ -271,28 +271,49 @@ namespace XiePinyin.Logic
                     ensureDocLoaded(sess.DocId);
                     var doc = docs.Find(x => x.DocId == sess.DocId);
                     if (doc == null) return false;
-                    ChangeSet cs = ChangeSet.FromJson(change);
-                    logger.Verbose("Change received from session {sessionKey}: client rev {clientRevisionId}, change: \n{change}",
-                        sessionKey, clientRevisionId, change);
-                    if (!cs.IsValid())
-                    {
-                        logger.Warning("Change is invalid. Ending this session.");
-                        return false;
-                    }
-                    var csToProp = doc.ApplyChange(cs, clientRevisionId);
-                    logger.Verbose("Propagating change:\n{change}", change);
+                    Selection sel = JsonConvert.DeserializeObject<Selection>(selStr);
+                    ChangeSet cs = changeStr != null ? ChangeSet.FromJson(changeStr) : null; ;
+                    logger.Verbose("Change received from session {sessionKey}: client rev {clientRevisionId}, sel: {sel} , change: \n{change}",
+                        sessionKey, clientRevisionId, selStr, changeStr);
+
+                    // Who are we broadcasting to?
                     List<string> receivers = new List<string>();
                     foreach (var x in sessions)
                         if (x.RequestedUtc == DateTime.MinValue && x.DocId == doc.DocId)
                             receivers.Add(x.SessionKey);
-                    Broadcaster.EnqueueChangeForBroadcast(new ChangeToBroadcast
+
+                    // What are we broadcasting?
+                    ChangeToBroadcast ctb = new ChangeToBroadcast
                     {
                         SourceSessionKey = sessionKey,
                         SourceBaseDocRevisionId = clientRevisionId,
                         NewDocRevisionId = doc.Revisions.Count - 1,
                         ReceiverSessionKeys = receivers,
-                        ChangeJson = csToProp.SerializeJson(),
-                    });
+                    };
+                    // This is only about a changed selection
+                    if (cs == null)
+                    {
+                        ctb.SelJson = JsonConvert.SerializeObject(doc.ForwardSelection(sel, clientRevisionId));
+                        logger.Verbose("Propagating change: sel: {sel}", ctb.SelJson);
+                    }
+                    // We got us a real change set
+                    else
+                    {
+                        if (!cs.IsValid())
+                        {
+                            logger.Warning("Change is invalid. Ending this session.");
+                            return false;
+                        }
+                        ChangeSet csToProp;
+                        Selection selToProp;
+                        doc.ApplyChange(cs, sel, clientRevisionId, out csToProp, out selToProp);
+                        ctb.NewDocRevisionId = doc.Revisions.Count - 1;
+                        ctb.SelJson = JsonConvert.SerializeObject(selToProp);
+                        ctb.ChangeJson = csToProp.SerializeJson();
+                        logger.Verbose("Propagating change: sel: {sel}; changeset:\n{change}", ctb.SelJson, ctb.ChangeJson);
+                    }
+                    // Showtime!
+                    Broadcaster.EnqueueChangeForBroadcast(ctb);
                 }
                 return true;
             }

@@ -91,7 +91,7 @@ module.exports = (function (elmHost, path, navigateTo) {
       _docData = onlineDocData(data.data);
       _docData.startSession(function (error, loadData) {
         if (error) initError("Failed to start session; the server said: " + error);
-        else init(loadData.name, loadData.baseText);
+        else init(loadData.name, loadData.baseText, loadData.sel);
       }, onConnectionTragedy, onRemoteUpdate);
     });
     req.fail(function () {
@@ -99,7 +99,7 @@ module.exports = (function (elmHost, path, navigateTo) {
     });
   }
 
-  function init(name, baseText) {
+  function init(name, baseText, sel) {
     _elmHost.empty();
     _elmHost.html(htmlPage);
     _header = new Comps.EditorHeader({
@@ -120,9 +120,10 @@ module.exports = (function (elmHost, path, navigateTo) {
     });
 
     _editor = require("./editor/editor")(_elmHost.find(".page"), onKeyDown);
-    _editor.setContent(baseText);
+    _editor.setContent(baseText, sel);
     _editor.setInputType(_state.inputType);
     _editor.onReplace(onReplace);
+    _editor.onSelChange(onSelChange);
   }
 
   function onKeyDown(e) {
@@ -151,6 +152,10 @@ module.exports = (function (elmHost, path, navigateTo) {
 
   function onReplace(e) {
     _docData.processEdit(e.detail.start, e.detail.end, e.detail.newText);
+  }
+
+  function onSelChange(e) {
+    _docData.processSelChange(e.detail);
   }
 
   function beforeLeave() {

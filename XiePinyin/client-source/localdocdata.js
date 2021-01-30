@@ -81,8 +81,12 @@ module.exports = (function (id) {
     saveContent();
   }
 
+  function processSelChange(newSel) {
+  }
+
   return {
     startSession,
     processEdit,
+    processSelChange,
   };
 });

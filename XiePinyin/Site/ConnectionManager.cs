@@ -99,9 +99,14 @@ namespace XiePinyin.Site
             // Client announced a change
             if (msg.StartsWith("CHANGE "))
             {
-                int ix = msg.IndexOf(' ', 7);
-                int revId = int.Parse(msg.Substring(7, ix - 7));
-                if (!docJuggler.ChangeReceived(mc.SessionKey, revId, msg.Substring(ix + 1)))
+                int ix1 = msg.IndexOf(' ', 7);
+                int ix2 = msg.IndexOf(' ', ix1 + 1);
+                if (ix2 == -1) ix2 = msg.Length;
+                int revId = int.Parse(msg.Substring(7, ix1 - 7));
+                string selStr = msg.Substring(ix1 + 1, ix2 - ix1 - 1);
+                string changeStr = null;
+                if (ix2 != msg.Length) changeStr = msg.Substring(ix2 + 1);
+                if (!docJuggler.ChangeReceived(mc.SessionKey, revId, selStr, changeStr))
                     await wsc.CloseIfNotClosedAsync("We don't like this change; your session might have expired, the doc may be gone, or the change may be invalid.");
                 return;
             }
@@ -146,7 +151,8 @@ namespace XiePinyin.Site
         public Task BroadcastChange(ChangeToBroadcast ctb)
         {
             List<Task> tasks = new List<Task>();
-            string updMsg = "UPDATE " + ctb.NewDocRevisionId + " " + ctb.ChangeJson;
+            string updMsg = "UPDATE " + ctb.NewDocRevisionId + " " + ctb.SourceSessionKey + " " + ctb.SelJson;
+            if (ctb.ChangeJson != null) updMsg += " " + ctb.ChangeJson;
             string ackMsg = "ACKCHANGE " + ctb.SourceBaseDocRevisionId + " " + ctb.NewDocRevisionId;
             lock (conns)
             {
@@ -160,8 +166,9 @@ namespace XiePinyin.Site
                         continue;
                     tasks.Add(x.WSC.SendAsync(updMsg, CancellationToken.None));
                 }
-                // Acknowledge change to sender
-                if (senderConn != null)
+                // Acknowledge change to sender: but only for actual content changes!
+                // We're not acknowledging selection changes, as those don't change revision ID
+                if (senderConn != null && ctb.ChangeJson != null)
                     tasks.Add(senderConn.WSC.SendAsync(ackMsg, CancellationToken.None));
             }
             return Task.WhenAll(tasks);

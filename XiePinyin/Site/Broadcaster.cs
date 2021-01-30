@@ -34,7 +34,7 @@ namespace XiePinyin.Site
 
         public void TerminateSessions(List<string> sessionKeys)
         {
-
+            // TO-DO
         }
 
         public void EnqueueChangeForBroadcast(ChangeToBroadcast ctb)

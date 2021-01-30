@@ -75,14 +75,33 @@ module.exports = (function () {
     return res;
   }
 
-  function apply(text, cs) {
+  function apply(text, cs, poss) {
     if (text.length != cs.lengthBefore)
       throw "Change set's lengthBefore must match text length";
+    let pp = [];
+    if (poss) pp = [...poss];
     let items = [];
-    for (let ix = 0; ix < cs.items.length; ++ix) {
-      if (typeof cs.items[ix] === "object") items.push(cs.items[ix]);
-      else items.push(text[cs.items[ix]]);
+    for (let i = 0; i < cs.items.length; ++i) {
+      if (typeof cs.items[i] === "object") items.push(cs.items[i]);
+      else {
+        let ix = cs.items[i];
+        for (let j = 0; j < pp.length; ++j) {
+          if (pp[j] == -1) continue;
+          if (ix + 1 == pp[j]) {
+            poss[j] = items.length + 1;
+            pp[j] = -1;
+          }
+          else if (ix >= pp[j]) {
+            poss[j] = items.length;
+            pp[j] = -1;
+          }
+        }
+        items.push(text[ix]);
+      }
     }
+    for (let j = 0; j < pp.length; ++j)
+      if (pp[j] != -1)
+        poss[j] = items.length;
     return items;
   }
 

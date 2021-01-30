@@ -74,25 +74,40 @@ namespace XiePinyin.Logic
         }
 
         /// <summary>
+        /// Calculates forward of selection from a client, so it applies to current head text.
+        /// </summary>
+        /// <param name="sel">Selection communicated by the client.</param>
+        /// <param name="baseRevId">Client's revision ID, to which selection applies.</param>
+        /// <returns>Selection forwarded to current head.</returns>
+        public Selection ForwardSelection(Selection sel, int baseRevId)
+        {
+            // TO-DO: Calculate forward of selection
+            return sel;
+        }
+
+        /// <summary>
         /// Applies a changeset received from a client to the document.
         /// </summary>
         /// <param name="cs">Changeset received from client.</param>
         /// <param name="baseRevId">Client's head revision ID (latest revision they are aware of; this is what the change is based on).</param>
-        /// <returns>Computed new changeset added to the end of document's master revision list.</returns>
-        public ChangeSet ApplyChange(ChangeSet cs, int baseRevId)
+        /// <param name="csToProp">Computed new changeset added to the end of document's master revision list.</param>
+        /// <param name="selToProp">Computed new selection, forwarded head text.</param>
+        public void ApplyChange(ChangeSet cs, Selection sel, int baseRevId, out ChangeSet csToProp, out Selection selToProp)
         {
             // Compute sequence of follows so we get changeset that applies to our latest revision
             // Server's head might be ahead of the revision known to the client, which is what this CS is based on.
-            var csf = cs;
+            csToProp = cs;
             for (int i = baseRevId + 1; i < Revisions.Count; ++i)
             {
-                csf = ChangeSet.Follow(Revisions[i].ChangeSet, csf);
+                csToProp = ChangeSet.Follow(Revisions[i].ChangeSet, csToProp);
             }
-            Revisions.Add(new Revision(csf));
-            HeadText = ChangeSet.Apply(HeadText, csf);
+            Revisions.Add(new Revision(csToProp));
+            HeadText = ChangeSet.Apply(HeadText, csToProp);
             Dirty = true;
             LastChanged = DateTime.UtcNow;
-            return csf;
+
+            // TO-DO: Calculate forward of selection
+            selToProp = sel;
         }
     }
 }
