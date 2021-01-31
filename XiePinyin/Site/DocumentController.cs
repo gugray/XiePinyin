@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System;
+﻿using System;
+using System.Linq;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Serilog;
 
 using XiePinyin.Logic;
@@ -27,6 +29,7 @@ namespace XiePinyin.Site
         }
 
         [HttpGet]
+        [Authorize(AuthenticationSchemes = "XieAuth")]
         public IActionResult Open([FromQuery] string docId)
         {
             var sessionKey = docJuggler.RequestSession(docId);
@@ -35,6 +38,7 @@ namespace XiePinyin.Site
         }
 
         [HttpPost]
+        [Authorize(AuthenticationSchemes = "XieAuth")]
         public IActionResult Create([FromForm] string name)
         {
             var docId = docJuggler.CreateDocument(name);
@@ -42,6 +46,7 @@ namespace XiePinyin.Site
         }
 
         [HttpPost]
+        [Authorize(AuthenticationSchemes = "XieAuth")]
         public IActionResult Delete([FromForm] string docId)
         {
             docJuggler.DeleteDocument(docId);

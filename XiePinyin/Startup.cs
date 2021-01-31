@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,6 +20,7 @@ namespace XiePinyin
         readonly IConfigurationRoot config;
         Broadcaster broadcaster;
         DocumentJuggler docJuggler;
+        AuthSessionManager asm;
 
         public Startup(IWebHostEnvironment env)
         {
@@ -37,6 +39,14 @@ namespace XiePinyin
         {
             services.AddSingleton(Log.Logger);
 
+            //services.AddAuthentication(options =>
+            //{
+            //    options.DefaultScheme= "XieAuthScheme";
+            //}).AddScheme<XieAuthenticationSchemeOptions, XieAuthenticationHandler>("XieAuthScheme", op => { });
+
+            services.AddAuthentication("XieAuth").AddScheme<XieAuthenticationSchemeOptions, XieAuthenticationHandler>("XieAuth", null);
+
+
             // MVC for serving pages and REST
             services.AddMvc(x => { x.EnableEndpointRouting = true; }).AddRazorRuntimeCompilation();
             // Configuration singleton
@@ -44,11 +54,14 @@ namespace XiePinyin
             // Input conversion
             services.AddSingleton(new Composer(config["sourcesFolder"]));
 
+            asm = new AuthSessionManager(config["secretsFile"], Log.Logger);
             var dopt = new DocumentJuggler.Options { DocsFolder = config["docsFolder"]  };
             docJuggler = new DocumentJuggler(dopt, Log.Logger);
             var connMgr = new ConnectionManager(docJuggler, Log.Logger);
             broadcaster = new Broadcaster(connMgr, Log.Logger);
             docJuggler.Broadcaster = broadcaster;
+
+            services.AddSingleton(asm);
             services.AddSingleton(docJuggler);
             services.AddSingleton(connMgr);
             services.AddSingleton(broadcaster);
@@ -95,11 +108,13 @@ namespace XiePinyin
             app.UseWebSockets().MapWebSocketConnections("/sock", wsmo);
 
             app.UseRouting();
-            // Serve our (single) .cshtml file, and serve API requests.
+            app.UseAuthentication();
+            app.UseAuthorization();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllerRoute("api-compose", "api/compose/{*query}", new { controller = "Compose", action = "Get" });
                 endpoints.MapControllerRoute("api-doc", "api/doc/{action}/{*paras}", new { controller = "Document", paras = "" });
+                endpoints.MapControllerRoute("api-auth", "api/auth/{action}/{*paras}", new { controller = "Auth", paras = "" });
                 endpoints.MapControllerRoute("default", "{*paras}", new { controller = "Index", action = "Index", paras = "" });
                 //routes.MapRoute("default", "{*paras}", new { controller = "Index", action = "Index", paras = "" });
             });

@@ -59,7 +59,7 @@ window.theApp = (function () {
     if (isLocalhost()) loadScript("/livereload.js?host=localhost&port=35730");
 
     // Set up single-page navigation
-    $(document).on('click', 'a.ajax', function () {
+    $(document).on('click', 'a.spa', function () {
       history.pushState(null, null, this.href);
       navigate();
       return false;

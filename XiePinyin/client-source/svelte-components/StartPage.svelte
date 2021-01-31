@@ -3,14 +3,19 @@
 	import { localStore } from "./localStore";
 	import { getRandomId } from "./idGenerator";
 	import Button from "./Button.svelte";
+  import LoginWindow from "./LoginWindow.svelte";
 	import DocListItem from "./DocListItem.svelte";
 	import CreateDoc from "./CreateDoc.svelte";
 	var JQ = require("jquery");
+	var auth = require("../auth.js");
 
 	let localDocs = localStore("docs", []);
 	let onlineDocs = localStore("online-docs", []);
 	let creatingLocal = false;
 	let creatingOnline = false;
+	let isLoggedIn = auth.isLoggedIn();
+	$: logInOutText = isLoggedIn ? "Log out" : "Log in";
+	let showLogin = false;
 
 	function showError(message) {
 		console.log("Error: " + message);
@@ -99,11 +104,37 @@
 		});
 	}
 
+	function onClickLogInOut() {
+		isLoggedIn = auth.isLoggedIn();
+		if (!isLoggedIn) showLogin = true;
+		else {
+      var req = JQ.ajax({
+        url: "/api/auth/logout/",
+        type: "POST",
+      });
+			req.done(function (data) {
+        isLoggedIn = auth.isLoggedIn();
+      });
+      req.fail(function () {
+        isLoggedIn = auth.isLoggedIn();
+      });
+    }
+	}
+
+	function onLoginDone() {
+		showLogin = false;
+    isLoggedIn = auth.isLoggedIn();
+  }
+
 </script>
 
 <style lang="less">
   @import "../style-defines.less";
 	article { cursor: default; }
+	h1 { 
+		width: 100%; 
+		:global(.button) { display: block; float: right; margin-top: 10px; }
+	}
 	h2 {
 		font-weight: normal; font-size: 27px;
 		:global(.button) { margin-left: 10px; }
@@ -115,8 +146,13 @@
 </style>
 
 <article>
-	<h1>写拼音 Biscriptal Editor</h1>
+	<h1>写拼音 Biscriptal Editor <Button label="{logInOutText}" enabled="true" on:click={onClickLogInOut} /></h1>
 
+	{#if showLogin}
+	<LoginWindow on:done={onLoginDone} />
+	{/if}
+
+	<!--
 	<h2>Documents in your browser <Button label="Create" enabled={!creatingLocal} on:click={onClickCreateLocal} /></h2>
 	{#if creatingLocal}
 	<CreateDoc on:done={onCreateLocalDone} />
@@ -127,20 +163,33 @@
 	{#each $localDocs as doc}
 	<DocListItem name={doc.name} id={doc.id} local lastEditedIso={doc.lastEditedIso} on:delete={onDeleteLocal} />
 	{/each}
+	-->
 
-	<h2>Online documents <Button label="Create" enabled={!creatingOnline} on:click={onClickCreateOnline} /></h2>
+	<h2>
+		Your documents
+		{#if isLoggedIn}
+		<Button label="Create" enabled={!creatingOnline} on:click={onClickCreateOnline} />
+		{/if}
+	</h2>
 	{#if creatingOnline}
 	<CreateDoc on:done={onCreateOnlineDone} />
 	{/if}
+	{#if isLoggedIn}
 	{#if $onlineDocs.length == 0}
-	<p>You haven't edited any online documents yet. <span class="linkish" on:click={onClickCreateOnline}>Create one</span> now!</p>
+	<p>You haven't edited any documents yet. <span class="linkish" on:click={onClickCreateOnline}>Create one</span> now!</p>
 	{/if}
 	{#each $onlineDocs as doc}
 	<DocListItem name={doc.name} id={doc.id} online lastEditedIso={doc.lastEditedIso} on:delete={onDeleteOnline} />
 	{/each}
+	{/if}
+	{#if !isLoggedIn}
+	<p>To create and edit documents, please <span class="linkish" on:click={onClickLogInOut}>log in</span>.</p>
+	{/if}
 
+	<!--
 	<h2>Sample</h2>
 	<p>
 		Or, you can <a href="/doc/sample" class="ajax">edit a sample document</a>.
 	</p>
+	-->
 </article>
