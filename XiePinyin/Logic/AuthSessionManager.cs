@@ -64,7 +64,8 @@ namespace XiePinyin.Logic
         HashSet<string> readSecrets()
         {
             HashSet<string> res = new HashSet<string>();
-            using (StreamReader sr = new StreamReader(secretsFileName))
+            using (FileStream fs = new FileStream(secretsFileName, FileMode.Open, FileAccess.Read))
+            using (StreamReader sr = new StreamReader(fs))
             {
                 string line;
                 while ((line = sr.ReadLine()) != null)

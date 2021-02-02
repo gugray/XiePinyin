@@ -59,7 +59,7 @@ input {
       display: inline-flex; flex-grow: 0;
       white-space: pre;
       span {
-        display: inline-block; height: 100%;
+        display: inline-block; height: 100%; box-sizing: border-box;
         &.sel { background-color: @selectionColor; }
         &.pad { flex-grow: 1; }
       }
@@ -73,9 +73,11 @@ input {
       span { padding-top: @fntSizeHanzi * 1.5; }
     }
     div.pinyin {
-      height: @fntSizePinyin * 1.5;  text-align: left;
+      height: @fntSizePinyin * 1.5; text-align: left;
     }
   }
+  &.diag { background-color: aliceblue; }
+  .diag { background-color: aliceblue; }
 }
 
 .composer {

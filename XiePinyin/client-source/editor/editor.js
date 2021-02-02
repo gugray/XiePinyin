@@ -12,7 +12,10 @@ module.exports = (function (elmHost, shortcutHandler) {
   var _elmHost = elmHost;
   var _shortcutHandler = shortcutHandler;
   var _inputType = "simp";
+  // Used only for focus chasing
   var _mouseButtonPressed = false;
+  // Positive value indicates that mouse button is pressed and selection tracks cursor
+  var _mousePressSelStartIx = -1;
   var _elmHanziCaret = $(htmlHanziCaret);
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
@@ -58,6 +61,8 @@ module.exports = (function (elmHost, shortcutHandler) {
     // Mouse and keyboard handlers
     _elmHost.mousedown(onMouseDown);
     _elmHiddenInput.keydown(onKeyDown);
+    _elmHost.mousemove(onMouseMove);
+    _elmHost.mouseup(onMouseUp);
   }
 
   function caretInterval() {
@@ -144,7 +149,68 @@ module.exports = (function (elmHost, shortcutHandler) {
     }
   }
 
+  function trackSelectionTo(ix) {
+    if (_sel.start == _sel.end) {
+      if (ix < _sel.start) {
+        _sel.start = ix;
+        _sel.caretAtStart = true;
+      }
+      else if (ix > _sel.end) {
+        _sel.end = ix;
+        _sel.caretAtStart = false;
+      }
+    }
+    else {
+      const nonCaretEnd = _sel.caretAtStart ? _sel.end : _sel.start;
+      if (ix > nonCaretEnd) {
+        _sel.start = nonCaretEnd;
+        _sel.end = ix;
+        _sel.caretAtStart = false;
+      }
+      else if (ix < nonCaretEnd) {
+        _sel.start = ix;
+        _sel.end = nonCaretEnd;
+        _sel.caretAtStart = true;
+      }
+      else {
+        _sel.start = _sel.end = ix;
+        _sel.caretAtStart = false;
+      }
+    }
+  }
+
   function onMouseDown(e) {
+    // We only care about left button.
+    if (e.originalEvent.buttons != 1) return;
+    console.log(e.originalEvent.x, e.originalEvent.y);
+    const pos = getContentIxFromCoords(e.originalEvent.x, e.originalEvent.y);
+    const ix = pos.before ? pos.ix : pos.ix + 1;
+    // Shift+click: selection
+    if (e.originalEvent.shiftKey) trackSelectionTo(ix);
+    // Just a click
+    else {
+      _sel.start = _sel.end = ix;
+      _sel.caretAtStart = false;
+    }
+    // Selection now tracks cursor
+    _mousePressSelStartIx = _sel.caretAtStart ? _sel.end : _sel.start;
+    // Selection has changed, update display
+    updateSelection();
+    setCaretBlinkie(true, true);
+  }
+
+  function onMouseUp(e) {
+    _mousePressSelStartIx = -1;
+  }
+
+  function onMouseMove(e) {
+    if (_mousePressSelStartIx == -1) return;
+    console.log(e.originalEvent.x, e.originalEvent.y);
+    const pos = getContentIxFromCoords(e.originalEvent.x, e.originalEvent.y);
+    const ix = pos.before ? pos.ix : pos.ix + 1;
+    console.log(pos);
+    trackSelectionTo(ix);
+    updateSelection();
   }
 
   function onKeyDown(e) {
@@ -297,6 +363,51 @@ module.exports = (function (elmHost, shortcutHandler) {
     updateSelection();
     setCaretBlinkie(true, true);
     broadcastSelChange();
+  }
+
+  function getContentIxFromCoords(x, y) {
+    let res = {
+      ix: -1,
+      before: true,
+    };
+    let ix = 0;
+    const contentLength = _elmHost.find(".hanzi>span.x").length - 1;
+    const wordCount = _elmHost.find(".word").length;
+    for (var i = 0; i < wordCount && res.ix == -1; ++i) {
+      const elmWord = _elmHost.find(".word").eq(i);
+      const spanCount = elmWord.find(".hanzi>span.x").length;
+      for (var j = 0; j < spanCount && res.ix == -1; ++j, ++ix) {
+        const elmHanzi = elmWord.find(".hanzi>span.x").eq(j);
+        const elmPinyin = elmWord.find(".pinyin>span.x").eq(j);
+        let elm = null;
+        if (y >= elmWord.offset().top && y < elmHanzi.offset().top + elmHanzi.height()) elm = elmHanzi;
+        else if (elmPinyin.length == 0 && y >= elmWord.offset().top && y < elmWord.offset().top + elmWord.outerHeight(true)) elm = elmHanzi;
+        else if (elmPinyin.length > 0 && y >= elmPinyin.offset().top && y < elmWord.offset().top + elmWord.outerHeight(true)) elm = elmPinyin;
+        if (elm != null) {
+          if (x < elm.offset().left) {
+            res.ix = ix;
+            res.before = true;
+          }
+          else if (x >= elm.offset().left && x < elm.offset().left + elm.width()) {
+            res.ix = ix;
+            res.before = x < elm.offset().left + elm.width() / 2;
+          }
+          else if (ix == contentLength - 1 && x >= elm.offset().left + elm.width()) {
+            res.ix = ix;
+            res.before = false;
+          }
+        }
+        else if (ix == contentLength - 1 && elmWord.offset().top + elmWord.outerHeight(true)) {
+          res.ix = contentLength;
+          res.before = true;
+        }
+        else if (y < elmHanzi.offset().top) {
+          res.ix = 0;
+          res.before = true;
+        }
+      }
+    }
+    return res;
   }
 
   function updateSelection() {
