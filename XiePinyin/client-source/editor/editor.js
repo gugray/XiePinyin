@@ -184,6 +184,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     if (e.originalEvent.buttons != 1) return;
     console.log(e.originalEvent.x, e.originalEvent.y);
     const pos = getContentIxFromCoords(e.originalEvent.x, e.originalEvent.y);
+    if (pos.ix == -1) return;
     const ix = pos.before ? pos.ix : pos.ix + 1;
     // Shift+click: selection
     if (e.originalEvent.shiftKey) trackSelectionTo(ix);
@@ -207,6 +208,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     if (_mousePressSelStartIx == -1) return;
     console.log(e.originalEvent.x, e.originalEvent.y);
     const pos = getContentIxFromCoords(e.originalEvent.x, e.originalEvent.y);
+    if (pos.ix == -1) return;
     const ix = pos.before ? pos.ix : pos.ix + 1;
     console.log(pos);
     trackSelectionTo(ix);
@@ -392,7 +394,7 @@ module.exports = (function (elmHost, shortcutHandler) {
             res.ix = ix;
             res.before = x < elm.offset().left + elm.width() / 2;
           }
-          else if (ix == contentLength - 1 && x >= elm.offset().left + elm.width()) {
+          else if (ix == contentLength && x >= elm.offset().left + elm.width()) {
             res.ix = ix;
             res.before = false;
           }
@@ -402,7 +404,7 @@ module.exports = (function (elmHost, shortcutHandler) {
           res.before = true;
         }
         else if (y < elmHanzi.offset().top) {
-          res.ix = 0;
+          res.ix = ix == 0 ? 0 : ix - 1;
           res.before = true;
         }
       }
