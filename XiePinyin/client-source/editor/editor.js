@@ -16,6 +16,8 @@ module.exports = (function (elmHost, shortcutHandler) {
   var _mouseButtonPressed = false;
   // Positive value indicates that mouse button is pressed and selection tracks cursor
   var _mousePressSelStartIx = -1;
+  // The "hidden" X coordinate of the caret that we aim to preserve when moving up/down in text
+  var _desiredCaretX = -1;
   var _elmHanziCaret = $(htmlHanziCaret);
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
@@ -99,16 +101,8 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmParas = converter.text2dom(content);
     _elmHost.find(".para").remove();
     for (let i = 0; i < _elmParas.length; ++i) _elmHost.append(_elmParas[i]);
-    if (!newSel) {
-      _sel.start = _sel.end = 0;
-      _sel.caretAtStart = false;
-    }
-    else {
-      _sel.start = newSel.start;
-      _sel.end = newSel.end;
-      _sel.caretAtStart = newSel.caretAtStart;
-    }
-    updateSelection();
+    if (!newSel) setSel(0, 0, false);
+    else setSel(newSel.start, newSel.end, newSel.caretAtStart);
   }
 
   function setInputType(inputType) {
@@ -153,52 +147,29 @@ module.exports = (function (elmHost, shortcutHandler) {
 
   function trackSelectionTo(ix) {
     if (_sel.start == _sel.end) {
-      if (ix < _sel.start) {
-        _sel.start = ix;
-        _sel.caretAtStart = true;
-      }
-      else if (ix > _sel.end) {
-        _sel.end = ix;
-        _sel.caretAtStart = false;
-      }
+      if (ix < _sel.start) setSel(ix, _sel.end, true);
+      else if (ix > _sel.end) setSel(_sel.start, ix, false);
     }
     else {
       const nonCaretEnd = _sel.caretAtStart ? _sel.end : _sel.start;
-      if (ix > nonCaretEnd) {
-        _sel.start = nonCaretEnd;
-        _sel.end = ix;
-        _sel.caretAtStart = false;
-      }
-      else if (ix < nonCaretEnd) {
-        _sel.start = ix;
-        _sel.end = nonCaretEnd;
-        _sel.caretAtStart = true;
-      }
-      else {
-        _sel.start = _sel.end = ix;
-        _sel.caretAtStart = false;
-      }
+      if (ix > nonCaretEnd) setSel(nonCaretEnd, ix, false);
+      else if (ix < nonCaretEnd) setSel(ix, nonCaretEnd, true);
+      else setSel(ix, ix, false);
     }
   }
 
   function onMouseDown(e) {
     // We only care about left button.
     if (e.originalEvent.buttons != 1) return;
-    console.log(e.originalEvent.x, e.originalEvent.y);
     const pos = getContentIxFromCoords(e.originalEvent.x, e.originalEvent.y);
     if (pos.ix == -1) return;
     const ix = pos.before ? pos.ix : pos.ix + 1;
     // Shift+click: selection
     if (e.originalEvent.shiftKey) trackSelectionTo(ix);
     // Just a click
-    else {
-      _sel.start = _sel.end = ix;
-      _sel.caretAtStart = false;
-    }
+    else setSel(ix, ix, false);
     // Selection now tracks cursor
     _mousePressSelStartIx = _sel.caretAtStart ? _sel.end : _sel.start;
-    // Selection has changed, update display
-    updateSelection();
     setCaretBlinkie(true, true);
   }
 
@@ -208,13 +179,10 @@ module.exports = (function (elmHost, shortcutHandler) {
 
   function onMouseMove(e) {
     if (_mousePressSelStartIx == -1) return;
-    console.log(e.originalEvent.x, e.originalEvent.y);
     const pos = getContentIxFromCoords(e.originalEvent.x, e.originalEvent.y);
     if (pos.ix == -1) return;
     const ix = pos.before ? pos.ix : pos.ix + 1;
-    console.log(pos);
     trackSelectionTo(ix);
-    updateSelection();
   }
 
   function onKeyDown(e) {
@@ -223,7 +191,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     switch (e.code) {
       case "Backspace":
         if (_sel.end != _sel.start || _sel.start > 0) {
-          if (_sel.end == _sel.start) --_sel.start; 
+          if (_sel.end == _sel.start) setSel(_sel.start - 1, _sel.end, _sel.caretAtStart);
           replaceSel([]);
           handled = true;
         }
@@ -243,6 +211,14 @@ module.exports = (function (elmHost, shortcutHandler) {
         break;
       case "ArrowRight":
         handleRight(e.ctrlKey, e.shiftKey);
+        handled = true;
+        break;
+      case "ArrowDown":
+        handleDown(e.shiftKey);
+        handled = true;
+        break;
+      case "ArrowUp":
+        handleUp(e.shiftKey);
         handled = true;
         break;
     }
@@ -293,44 +269,99 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmParas = converter.text2dom(newCont);
     _elmHost.find(".para").remove();
     for (let i = 0; i < _elmParas.length; ++i) _elmHost.append(_elmParas[i]);
-    _sel.start += chars.length;
-    _sel.end = _sel.start;
-    _sel.caretAtStart = false;
-    updateSelection();
+    setSel(_sel.start + chars.length, _sel.start + chars.length, false);
     if (_elmHiddenInput.is(":focus")) setCaretBlinkie(true, true);
 
     _elmHost[0].dispatchEvent(evt);
+  }
+
+  function handleDown(shiftKey) {
+    const hofs = _elmHost.offset();
+    if (_desiredCaretX == -1)
+      _desiredCaretX = Math.round(_elmHanziCaret.offset().left - hofs.left);
+    const currY = _elmHanziCaret.offset().top - hofs.top;
+    let nextY = -1;
+    let nextIx = -1, ix = 0;
+    const contentLength = _elmHost.find(".hanzi>span.x").length - 1;
+    const wordCount = _elmHost.find(".word").length;
+    for (var i = 0; i < wordCount && nextIx == -1; ++i) {
+      const elmWord = _elmHost.find(".word").eq(i);
+      const spanCount = elmWord.find(".hanzi>span.x").length;
+      for (var j = 0; j < spanCount && nextIx == -1; ++j, ++ix) {
+        const elmHanzi = elmWord.find(".hanzi>span.x").eq(j);
+        const thisY = elmHanzi.offset().top - hofs.top;
+        if (thisY < currY + 1) continue;
+        if (nextY == -1) nextY = thisY;
+        else if (thisY > nextY) {
+          nextIx = ix - 1;
+          break;
+        }
+        const hanziMid = elmHanzi.offset().left - hofs.left + elmHanzi.width() / 2;
+        if (hanziMid >= _desiredCaretX) nextIx = ix;
+        else if (ix == contentLength) nextIx = ix;
+      }
+    }
+    if (nextIx != -1) {
+      if (!shiftKey) setSel(nextIx, nextIx, false, true);
+      else {
+        const nonCaretEnd = _sel.caretAtStart ? _sel.end : _sel.start;
+        if (nextIx <= nonCaretEnd) setSel(nextIx, nonCaretEnd, true);
+        else setSel(nonCaretEnd, nextIx, false);
+      }
+      setCaretBlinkie(true, true);
+    }
+  }
+
+  function handleUp(shiftKey) {
+    const hofs = _elmHost.offset();
+    if (_desiredCaretX == -1)
+      _desiredCaretX = Math.round(_elmHanziCaret.offset().left - hofs.left);
+    const lnHeight = _elmHost.find(".word").outerHeight(true);
+    const currY = _elmHanziCaret.offset().top - hofs.top;
+    if (currY < lnHeight) return;
+    let prevIx = -1, ix = 0;
+    const wordCount = _elmHost.find(".word").length;
+    for (var i = 0; i < wordCount && prevIx == -1; ++i) {
+      const elmWord = _elmHost.find(".word").eq(i);
+      const spanCount = elmWord.find(".hanzi>span.x").length;
+      for (var j = 0; j < spanCount && prevIx == -1; ++j, ++ix) {
+        const elmHanzi = elmWord.find(".hanzi>span.x").eq(j);
+        const thisY = elmHanzi.offset().top - hofs.top;
+        if (thisY < currY - lnHeight - 1) continue;
+        if (Math.abs(thisY - currY) < 1) {
+          prevIx = ix - 1;
+          continue;
+        }
+        const hanziMid = elmHanzi.offset().left - hofs.left + elmHanzi.width() / 2;
+        if (hanziMid >= _desiredCaretX) prevIx = ix;
+      }
+    }
+    if (prevIx != -1) {
+      if (!shiftKey) setSel(prevIx, prevIx, false, true);
+      else {
+        const nonCaretEnd = _sel.caretAtStart ? _sel.end : _sel.start;
+        if (prevIx <= nonCaretEnd) setSel(prevIx, nonCaretEnd, true);
+        else setSel(nonCaretEnd, prevIx, false);
+      }
+      setCaretBlinkie(true, true);
+    }
   }
 
   function handleLeft(ctrlKey, shiftKey) {
     // Moving one char at a time
     if (!ctrlKey) {
       // We have a selection and shift is not pressed: Selection gone, caret is at left of selection
-      if (_sel.end != _sel.start && !shiftKey) {
-        _sel.end = _sel.start;
-        _sel.caretAtStart = true;
-      }
+      if (_sel.end != _sel.start && !shiftKey) setSel(_sel.start, _sel.start, true);
       // Caret at start of para: cannot go further
-      else if (_sel.start == 0) return;
+      else if (_sel.start == 0 && (_sel.caretAtStart || _sel.end == _sel.start)) return;
       // Shift not pressed: move caret left
-      else if (!shiftKey) {
-        --_sel.start;
-        _sel.end = _sel.start;
-        _sel.caretAtStart = true;
-      }
+      else if (!shiftKey) setSel(_sel.start - 1, _sel.start - 1, true);
       // Shift pressed: expand/shrink selection
       else if (shiftKey) {
-        if (_sel.caretAtStart || _sel.start == _sel.end) {
-          --_sel.start;
-          _sel.caretAtStart = true;
-        }
-        else {
-          --_sel.end;
-          if (_sel.end == _sel.start) _sel.caretAtStart = true;
-        }
+        if (_sel.caretAtStart || _sel.start == _sel.end) setSel(_sel.start - 1, _sel.end, true);
+        else setSel(_sel.start, _sel.end - 1, _sel.start == _sel.end - 1);
       }
     }
-    updateSelection();
     setCaretBlinkie(true, true);
     broadcastSelChange();
   }
@@ -339,32 +370,24 @@ module.exports = (function (elmHost, shortcutHandler) {
     const charCount = _elmHost.find(".para div.hanzi>span.x").length;
     // Moving one char at a time
     if (!ctrlKey) {
-      // We have a selection and shift is not pressed: Selection gone, caret is at right of selection
-      if (_sel.end != _sel.start && !shiftKey) {
-        _sel.start = _sel.end;
-        _sel.caretAtStart = true;
-      }
       // Caret at end of para: cannot go further
-      else if (_sel.end == charCount - 1) return;
-      // Shift not pressed: move caret right
-      else if (!shiftKey) {
-        ++_sel.end;
-        _sel.start = _sel.end;
-        _sel.caretAtStart = true;
+      if (_sel.end == charCount - 1 && (!_sel.caretAtStart || _sel.end == _sel.start)) return;
+      if (!shiftKey) {
+        // We have a selection and shift is not pressed: Selection gone, caret is at right of selection
+        if (_sel.end != _sel.start) setSel(_sel.end, _sel.end, true);
+        // No selection: move caret right
+        else setSel(_sel.end + 1, _sel.end + 1, true);
       }
       // Shift pressed: expand/shrink selection
-      else if (shiftKey) {
-        if (!_sel.caretAtStart || _sel.start == _sel.end) {
-          ++_sel.end;
-          _sel.caretAtStart = false;
-        }
+      else {
+        if (_sel.start == _sel.end) setSel(_sel.start, _sel.start + 1, false);
         else {
-          ++_sel.start;
-          if (_sel.end == _sel.start) _sel.caretAtStart = true;
+          const nonCaretEnd = _sel.caretAtStart ? _sel.end : _sel.start;
+          if (nonCaretEnd == _sel.end) setSel(_sel.start + 1, _sel.end, true);
+          else setSel(_sel.start, _sel.end + 1, false);
         }
       }
     }
-    updateSelection();
     setCaretBlinkie(true, true);
     broadcastSelChange();
   }
@@ -414,7 +437,10 @@ module.exports = (function (elmHost, shortcutHandler) {
     return res;
   }
 
-  function updateSelection() {
+  function setSel(start, end, caretAtStart, preserveDesiredCaretX) {
+    _sel.start = start;
+    _sel.end = end;
+    _sel.caretAtStart = caretAtStart;
     var hanziCaretX = 0, hanziCaretY = 0, pinyinCaretX = 0, pinyinCaretY = 0;
     var ix = 0;
     var wordCount = _elmHost.find(".word").length;
@@ -456,6 +482,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmPinyinCaret.css("top", pinyinCaretY + "px");
     _elmHiddenInput.css("left", hanziCaretX + "px");
     _elmHiddenInput.css("top", hanziCaretY + "px");
+    if (!preserveDesiredCaretX) _desiredCaretX = -1;
     setTimeout(scrollToCaret, 20);
   }
 

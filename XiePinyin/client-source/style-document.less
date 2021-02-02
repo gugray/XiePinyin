@@ -35,7 +35,7 @@ input {
   background-color: white; box-shadow: 0 0 0 1px #d1d1d152, 0 0 10px 0 #cccccc90;
   .caret {
     position: absolute; width: 2px; background-color: @cursorColor;
-    &.hidden { display: none; }
+    &.hidden { visibility: hidden; }
     &.frozen, &.hidden.frozen { display: block; background-color: @lightCursorColor; }
     &.hanzi { height: @fntSizeHanzi * 1.5; }
     &.pinyin { height: @fntSizePinyin * 1.5; }
