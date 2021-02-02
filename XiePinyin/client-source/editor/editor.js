@@ -123,14 +123,16 @@ module.exports = (function (elmHost, shortcutHandler) {
     _suppressHiddenInfputChange = true;
     _elmHiddenInput.val("");
     _suppressHiddenInfputChange = false;
-    // If we're in alfa mode, insert characters into text
+    // If we're in alfa mode, insert characters into text. This also gracefully handles pasting.
     if (_inputType == "alfa") {
-      for (let i = 0; i < val.length; ++i) {
-        replaceSel([{ hanzi: val[i] }]);
-      }
+      let text = [];
+      for (const c of val) text.push({ hanzi: c });
+      replaceSel(text);
     }
     // In biscriptal mode, show composer window
     else {
+      // But if there are multiple characters (paste?!), just swalling zis.
+      if (val.length > 1) return;
       _elmHiddenInput.prop("disabled", true);
       setCaretBlinkie(false);
       let caretTop = _elmHanziCaret.offset().top - _elmHost.offset().top;
@@ -451,7 +453,26 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmHanziCaret.css("left", hanziCaretX + "px");
     _elmHanziCaret.css("top", hanziCaretY + "px");
     _elmPinyinCaret.css("left", pinyinCaretX + "px");
-    _elmPinyinCaret.css("top",  pinyinCaretY + "px");
+    _elmPinyinCaret.css("top", pinyinCaretY + "px");
+    _elmHiddenInput.css("left", hanziCaretX + "px");
+    _elmHiddenInput.css("top", hanziCaretY + "px");
+    setTimeout(scrollToCaret, 20);
+  }
+
+  function scrollToCaret() {
+    if (_elmPinyinCaret[0].getBoundingClientRect().bottom > window.innerHeight - 20) {
+      const diff = _elmPinyinCaret[0].getBoundingClientRect().bottom - window.innerHeight;
+      let scrollTop = $("#app").scrollTop();
+      scrollTop += (diff + 20);
+      $("#app").scrollTop(scrollTop);
+      //_elmPinyinCaret[0].scrollIntoView(false);
+    } else if (_elmHanziCaret[0].getBoundingClientRect().top < $(".header").height() + 10) {
+      const diff = $(".header").height() - _elmHanziCaret[0].getBoundingClientRect().top;
+      let scrollTop = $("#app").scrollTop();
+      scrollTop -= (diff + 10);
+      if (scrollTop < 0) scrollTop = 0;
+      $("#app").scrollTop(scrollTop);
+    }
   }
 
   function setPeerSelections(pss) {
