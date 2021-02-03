@@ -3,7 +3,7 @@ var $ = require("jquery");
 var localDocData = require("./localdocdata");
 var onlineDocData = require("./onlinedocdata");
 
-const initialInputType = "alfa";
+const initialInputType = "simp";
 
 const htmlPage = `
 <div class="document">
@@ -95,7 +95,7 @@ module.exports = (function (elmHost, path, navigateTo) {
       }, onConnectionTragedy, onRemoteUpdate);
     });
     req.fail(function () {
-      initError("The server returned an error. Most likely the document no longer exists.");
+      initError("The server returned an error. Maybe the document no longer exists, or you are not logged in.");
     });
   }
 

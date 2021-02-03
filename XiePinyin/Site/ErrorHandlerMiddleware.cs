@@ -25,9 +25,17 @@ namespace XiePinyin.Site
             catch (Exception ex)
             {
                 logger.Error(ex, "Unhandled exception");
-                context.Response.ContentType = "text/plain; charset=utf-8";
-                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                await context.Response.WriteAsync("Unhandled exception. 对不起!");
+                try
+                {
+                    context.Response.ContentType = "text/plain; charset=utf-8";
+                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                    await context.Response.WriteAsync("Unhandled exception. 对不起!");
+                }
+                catch
+                {
+                    // We may get exception here is connection is already being terminated, eg at shutdown.
+                    throw;
+                }
             }
         }
     }

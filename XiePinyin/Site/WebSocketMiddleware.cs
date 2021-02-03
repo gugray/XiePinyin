@@ -35,9 +35,19 @@ namespace XiePinyin.Site
             connMgr.AddConnection(webSocketConnection);
             await webSocketConnection.ReceiveMessagesUntilCloseAsync();
             if (webSocket.State != WebSocketState.Closed)
-                await webSocket.CloseAsync(webSocketConnection.CloseStatus ?? WebSocketCloseStatus.NormalClosure,
-                    webSocketConnection.CloseStatusDescription ?? "",
-                    CancellationToken.None);
+            {
+                try
+                {
+                    await webSocket.CloseAsync(webSocketConnection.CloseStatus ?? WebSocketCloseStatus.NormalClosure,
+                        webSocketConnection.CloseStatusDescription ?? "",
+                        CancellationToken.None);
+                }
+                catch
+                {
+                    // We may get an exception here if socket is already gone, eg at shutdown
+                    throw;
+                }
+            }
             connMgr.RemoveConnection(webSocketConnection.Id);
         }
 
