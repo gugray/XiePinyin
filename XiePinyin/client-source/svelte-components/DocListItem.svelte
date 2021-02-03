@@ -7,9 +7,9 @@
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
 
+  $: lastEditedLabel = local ? "Last edited:" : "Last opened by me:"
   $: lastEditedStr = new Date(lastEditedIso).toLocaleString("en-US");
   $: docUrl = local ? "/doc/local-" + id : "/doc/" + id;
-  $: lastEditedStr = local ? "Last edited: " + lastEditedStr : "Last edited by me: " + lastEditedStr;
 
   function onDelete() {
     if (!window.confirm("Delete this document? This cannot be undone.\n" + name)) return;
@@ -33,7 +33,7 @@
 <p>
   <a class="ajax" href={docUrl}>
     <b>{name}</b><br/>
-    <span class="info">Last edited: {lastEditedStr}</span>
+    <span class="info">{lastEditedLabel} {lastEditedStr}</span>
   </a>
   <span class="op" on:click={onDelete}>Delete</span>
 </p>

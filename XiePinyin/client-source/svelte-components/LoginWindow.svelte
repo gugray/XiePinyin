@@ -70,8 +70,8 @@
       </p>
       <p class="error">{resultMessage}&nbsp;</p>
       <p class="buttons">
-        <Button label="Cancel" enabled="true" on:click={onCancelClick} />
-        <Button label="Log in" enabled={loginEnabled} on:click={onLoginClick} />
+        <Button label="Cancel" round={false} enabled="true" on:click={onCancelClick} />
+        <Button label="Log in" round={false} enabled={loginEnabled} on:click={onLoginClick} />
       </p>
     </div>
   </div>

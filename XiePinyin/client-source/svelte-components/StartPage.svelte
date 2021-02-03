@@ -132,8 +132,11 @@
   @import "../style-defines.less";
 	article { cursor: default; }
 	h1 { 
-		width: 100%; 
+		width: 100%;
+		span { border-bottom: 3px solid #303030; }
+		//span { border-bottom: 3px solid #985700; }
 		:global(.button) { display: block; float: right; margin-top: 10px; }
+		img { width: 64px; vertical-align: top; }
 	}
 	h2 {
 		font-weight: normal; font-size: 27px;
@@ -146,24 +149,11 @@
 </style>
 
 <article>
-	<h1>写拼音 Biscriptal Editor <Button label="{logInOutText}" enabled="true" on:click={onClickLogInOut} /></h1>
+	<h1><img src="/xie-with-label.svg" alt="Fictive xiě character" /> <span>Biscriptal Editor</span> <Button label="{logInOutText}" enabled="true" on:click={onClickLogInOut} /></h1>
 
 	{#if showLogin}
 	<LoginWindow on:done={onLoginDone} />
 	{/if}
-
-	<!--
-	<h2>Documents in your browser <Button label="Create" enabled={!creatingLocal} on:click={onClickCreateLocal} /></h2>
-	{#if creatingLocal}
-	<CreateDoc on:done={onCreateLocalDone} />
-	{/if}
-	{#if $localDocs.length == 0}
-	<p>You don't have any documents yet. <span class="linkish" on:click={onClickCreateLocal}>Create one</span> now!</p>
-	{/if}
-	{#each $localDocs as doc}
-	<DocListItem name={doc.name} id={doc.id} local lastEditedIso={doc.lastEditedIso} on:delete={onDeleteLocal} />
-	{/each}
-	-->
 
 	<h2>
 		Your documents
@@ -185,11 +175,4 @@
 	{#if !isLoggedIn}
 	<p>To create and edit documents, please <span class="linkish" on:click={onClickLogInOut}>log in</span>.</p>
 	{/if}
-
-	<!--
-	<h2>Sample</h2>
-	<p>
-		Or, you can <a href="/doc/sample" class="ajax">edit a sample document</a>.
-	</p>
-	-->
 </article>
