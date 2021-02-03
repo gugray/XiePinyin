@@ -10,7 +10,6 @@ namespace XiePinyin.Logic
         readonly Pinyin pinyin;
         readonly List<CharReading> readingsSimp = new List<CharReading>();
         readonly List<CharReading> readingsTrad = new List<CharReading>();
-        const string vowels = "aeiou";
 
         public Composer(string sourcesFolder)
         {
@@ -23,6 +22,43 @@ namespace XiePinyin.Logic
             using (StreamReader sr = new StreamReader(Path.Combine("wwwroot", "trad-map.json")))
             {
                 readingsTrad = ser.Deserialize(sr, typeof(List<CharReading>)) as List<CharReading>;
+            }
+            addPunctReadings(readingsSimp, true);
+            addPunctReadings(readingsTrad, false);
+        }
+
+        void addPunctReadings(List<CharReading> readings, bool simp)
+        {
+            readings.Add(new CharReading { Hanzi = "。", Pinyin = "." });
+            readings.Add(new CharReading { Hanzi = "·", Pinyin = "." });
+            readings.Add(new CharReading { Hanzi = "，", Pinyin = "," });
+            readings.Add(new CharReading { Hanzi = "、", Pinyin = "," });
+            readings.Add(new CharReading { Hanzi = "？", Pinyin = "?" });
+            readings.Add(new CharReading { Hanzi = "！", Pinyin = "!" });
+            readings.Add(new CharReading { Hanzi = "：", Pinyin = ":" });
+            readings.Add(new CharReading { Hanzi = "；", Pinyin = ";" });
+            readings.Add(new CharReading { Hanzi = "……", Pinyin = ". . ." });
+            readings.Add(new CharReading { Hanzi = "…", Pinyin = ". . ." });
+            readings.Add(new CharReading { Hanzi = "【", Pinyin = "(" });
+            readings.Add(new CharReading { Hanzi = "（", Pinyin = "(" });
+            readings.Add(new CharReading { Hanzi = "】", Pinyin = ")" });
+            readings.Add(new CharReading { Hanzi = "）", Pinyin = ")" });
+            readings.Add(new CharReading { Hanzi = "《", Pinyin = "(" });
+            readings.Add(new CharReading { Hanzi = "》", Pinyin = ")" });
+            readings.Add(new CharReading { Hanzi = "——", Pinyin = "- -" });
+            if (simp)
+            {
+                readings.Add(new CharReading { Hanzi = "“", Pinyin = "\"" });
+                readings.Add(new CharReading { Hanzi = "”", Pinyin = "\"" });
+                readings.Add(new CharReading { Hanzi = "‘", Pinyin = "'" });
+                readings.Add(new CharReading { Hanzi = "’", Pinyin = "'" });
+            }
+            else
+            {
+                readings.Add(new CharReading { Hanzi = " 「", Pinyin = "\"" });
+                readings.Add(new CharReading { Hanzi = "」", Pinyin = "\"" });
+                readings.Add(new CharReading { Hanzi = "『", Pinyin = "'" });
+                readings.Add(new CharReading { Hanzi = "』", Pinyin = "'" });
             }
         }
 

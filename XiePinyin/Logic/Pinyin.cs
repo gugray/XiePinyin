@@ -120,6 +120,20 @@ namespace XiePinyin.Logic
                     ends.RemoveAt(ends.Count - 1);
                 }
             }
+            // Punctuation: treat as separate syllables
+            if (rest.Length > 0)
+            {
+                if (char.IsPunctuation(rest[0]))
+                {
+                    int endPos = pos + 1;
+                    // Record end of syllable
+                    ends.Add(endPos);
+                    // If rest matches, we're done
+                    if (matchSylls(str, endPos, ends)) return true;
+                    // Otherwise, backtrack, move on to next syllable
+                    ends.RemoveAt(ends.Count - 1);
+                }
+            }
             // If we're here, failed to resolve syllables
             return false;
         }
