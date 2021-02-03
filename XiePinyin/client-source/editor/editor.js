@@ -371,7 +371,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     // Moving one char at a time
     if (!ctrlKey) {
       // Caret at end of para: cannot go further
-      if (_sel.end == charCount - 1 && (!_sel.caretAtStart || _sel.end == _sel.start)) return;
+      if (_sel.end == charCount - 1 && (shiftKey && !_sel.caretAtStart || _sel.end == _sel.start)) return;
       if (!shiftKey) {
         // We have a selection and shift is not pressed: Selection gone, caret is at right of selection
         if (_sel.end != _sel.start) setSel(_sel.end, _sel.end, true);
