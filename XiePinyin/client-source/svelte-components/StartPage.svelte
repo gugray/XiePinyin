@@ -3,7 +3,8 @@
 	import { localStore } from "./localStore";
 	import { getRandomId } from "./idGenerator";
 	import Button from "./Button.svelte";
-  import LoginWindow from "./LoginWindow.svelte";
+  import ConfirmDelete from "./ConfirmDelete.svelte";
+	import LoginWindow from "./LoginWindow.svelte";
 	import DocListItem from "./DocListItem.svelte";
 	import CreateDoc from "./CreateDoc.svelte";
 	var JQ = require("jquery");
@@ -16,6 +17,8 @@
 	let isLoggedIn = auth.isLoggedIn();
 	$: logInOutText = isLoggedIn ? "Log out" : "Log in";
 	let showLogin = false;
+	let showConfirmDelete = false;
+	let docToDelName, docToDelId;
 
 	function showError(message) {
 		console.log("Error: " + message);
@@ -83,48 +86,56 @@
 	}
 
 	function onDeleteOnline(e) {
-		const id = e.detail;
-		var req = JQ.ajax({
-			url: "/api/doc/delete/",
-			type: "POST",
-			data: {
-				docId: id,
-			}
-		});
-		req.done(function (data) {
-			if (data.result != "OK") showError("Something went wrong.");
-			else {
-				let docs = $onlineDocs;
-				docs = docs.filter(itm => itm.id != id);
-				onlineDocs.set(docs);
-			}
-		});
-		req.fail(function () {
-			showError("Failed to delete online document.");
-		});
+		docToDelId = e.detail.id;
+		docToDelName = e.detail.name;
+		showConfirmDelete = true;
 	}
+	
+	function onConfirmDeleteDone(e) {
+		showConfirmDelete = false;
+		if (!e.detail) return;
+    const id = e.detail;
+    var req = JQ.ajax({
+      url: "/api/doc/delete/",
+      type: "POST",
+      data: {
+        docId: id,
+      }
+    });
+    req.done(function (data) {
+      if (data.result != "OK") showError("Something went wrong.");
+      else {
+        let docs = $onlineDocs;
+        docs = docs.filter(itm => itm.id != id);
+        onlineDocs.set(docs);
+      }
+    });
+    req.fail(function () {
+      showError("Failed to delete online document.");
+    });
+  }
 
 	function onClickLogInOut() {
 		isLoggedIn = auth.isLoggedIn();
 		if (!isLoggedIn) showLogin = true;
 		else {
-      var req = JQ.ajax({
-        url: "/api/auth/logout/",
-        type: "POST",
-      });
+			var req = JQ.ajax({
+				url: "/api/auth/logout/",
+				type: "POST",
+			});
 			req.done(function (data) {
-        isLoggedIn = auth.isLoggedIn();
-      });
-      req.fail(function () {
-        isLoggedIn = auth.isLoggedIn();
-      });
-    }
+				isLoggedIn = auth.isLoggedIn();
+			});
+			req.fail(function () {
+				isLoggedIn = auth.isLoggedIn();
+			});
+		}
 	}
 
 	function onLoginDone() {
 		showLogin = false;
-    isLoggedIn = auth.isLoggedIn();
-  }
+		isLoggedIn = auth.isLoggedIn();
+	}
 
 </script>
 
@@ -153,6 +164,9 @@
 
 	{#if showLogin}
 	<LoginWindow on:done={onLoginDone} />
+	{/if}
+	{#if showConfirmDelete}
+	<ConfirmDelete on:done={onConfirmDeleteDone} docName={docToDelName} docId={docToDelId} />
 	{/if}
 
 	<h2>

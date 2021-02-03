@@ -7,9 +7,10 @@ var CS = require('./editor/changeset');
 const pingInterval = 15000;
 const sendChangeInterval = 500;
 
-module.exports = (function (sessionKey) {
+module.exports = (function (sessionKey, docId) {
 
   var _sessionKey = sessionKey
+  var _docId = docId;
   var _name = "* unknown *";
   var _ws = null;
   var _wsOpen = false;
@@ -82,6 +83,25 @@ module.exports = (function (sessionKey) {
     else shoutTragedy(closeReason);
   }
 
+  function updateDocInfoLocally() {
+    var docInfos = [];
+    var docsJson = localStorage.getItem("online-docs");
+    if (docsJson) docInfos = JSON.parse(docsJson);
+    var newInfos = [];
+    var foundMyself = false;
+    for (var i = 0; i < docInfos.length; ++i) {
+      if (docInfos[i].id != _docId) newInfos.push(docInfos[i]);
+      else {
+        newInfos.push({ name: _name, lastEditedIso: new Date().toISOString(), id: _docId });
+        foundMyself = true;
+      }
+    }
+    if (!foundMyself) {
+      newInfos.unshift({ name: _name, lastEditedIso: new Date().toISOString(), id: _docId });
+    }
+    localStorage.setItem("online-docs", JSON.stringify(newInfos));
+  }
+
   function processHello(detail) {
     const data = JSON.parse(detail);
     _name = data.name;
@@ -99,6 +119,7 @@ module.exports = (function (sessionKey) {
         sel: { start: _displaySel.start, end: _displaySel.end, caretAtStart: _displaySel.caretAtStart },
         peerSelections: _peerSelections,
       });
+      updateDocInfoLocally();
     }
     _pingInterval = setInterval(doPing, pingInterval);
     _sendChangeInterval = setInterval(doSendChange, sendChangeInterval);

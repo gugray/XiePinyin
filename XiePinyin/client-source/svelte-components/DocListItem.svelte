@@ -12,8 +12,7 @@
   $: docUrl = local ? "/doc/local-" + id : "/doc/" + id;
 
   function onDelete() {
-    if (!window.confirm("Delete this document? This cannot be undone.\n" + name)) return;
-    dispatch("delete", id);
+    dispatch("delete", { id: id, name: name });
   }
 
 </script>

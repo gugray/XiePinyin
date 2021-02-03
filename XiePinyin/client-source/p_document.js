@@ -88,7 +88,7 @@ module.exports = (function (elmHost, path, navigateTo) {
         initError("Unexpected response from server.");
         return;
       }
-      _docData = onlineDocData(data.data);
+      _docData = onlineDocData(data.data, _id);
       _docData.startSession(function (error, loadData) {
         if (error) initError("Failed to start session; the server said: " + error);
         else init(loadData.name, loadData.baseText, loadData.sel, loadData.peerSelections);
