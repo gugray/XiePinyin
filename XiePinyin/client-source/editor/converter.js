@@ -69,7 +69,9 @@ function para2dom(para) {
       elmWord.find("div.pinyin").append($("<span class='pad'>&#x200b;</span>"));
       for (var j = 0; j < word.chars.length; ++j) {
         elmWord.find("div.hanzi").append($("<span class='x'>" + enc(word.chars[j].hanzi) + "</span>"));
-        var pyDisplay = pinyinMap.toDisplay(word.chars[j].pinyin);
+        var pyNums = word.chars[j].pinyin;
+        var pyDisplay = pinyinMap.toDisplay(pyNums);
+        if (j != 0 && pyNums != word.chars[j].hanzi && pinyinMap.isVowelFirst(pyNums)) pyDisplay = "'" + pyDisplay;
         elmWord.find("div.pinyin").append($("<span class='x'>" + enc(pyDisplay) + "</span>"));
       }
       elmWord.find("div.hanzi").append($("<span class='pad'>&#x200b;</span>"));

@@ -424,6 +424,8 @@ const pymap =
   "zuo": ["zuō", "zuó", "zuǒ", "zuò", "zuo"],
 };
 
+const vowels = "aeiouAEIUO";
+
 module.exports = (function () {
 
   // Build pinyin syllable recognizer regex
@@ -455,8 +457,14 @@ module.exports = (function () {
     return syll.replace(re, replacer);
   }
 
+  function isVowelFirst(syll) {
+    if (!syll || syll.length == 0) return;
+    return vowels.indexOf(syll[0]) != -1;
+  }
+
   return {
     map: pymap,
-    toDisplay: toDisplay,
+    toDisplay,
+    isVowelFirst,
   };
 })();
