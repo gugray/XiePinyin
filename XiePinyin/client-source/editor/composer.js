@@ -29,6 +29,14 @@ module.exports = (function (elmHost) {
     _elmInput.on("input", onInput);
     _elmInput.on("paste", function (e) { e.preventDefault(); });
     _elmSuggestions = _elmHost.find(".suggestions");
+
+    // If composer loses focus, and it's not because document as a whole loses it, let's close with cancel
+    _elmHost.focusout(function () {
+      setTimeout(function () {
+        if (_elmHost.find(":focus").length > 0) return;
+        if (document.hasFocus()) close(null);
+      }, 0);
+    });
   }
 
   function show(initialText, inputType, caretLeft, caretTop, caretBottom) {
@@ -102,7 +110,7 @@ module.exports = (function (elmHost) {
       elm.text(prompt);
       _elmSuggestions.append(elm);
       _elmSuggestions.find("span:first-child").addClass("sel");
-      _elmSuggestions.find("span").click(onSuggestionClick);
+      _elmSuggestions.find("span").mousedown(onSuggestionClick);
       if (_glueBottom) {
         let heightDiff = _elmHost.height() - heightBefore;
         _elmHost.offset({ top: ofsBefore.top - heightDiff, left: ofsBefore.left });
@@ -118,6 +126,10 @@ module.exports = (function (elmHost) {
 
   function close(selectedText, withSpace) {
     _elmHost.find("input").prop("disabled", true);
+    _elmSuggestions.removeClass("loading");
+    _elmSuggestions.removeClass("info");
+    _elmSuggestions.removeClass("error");
+    _elmSuggestions.html("");
     _elmHost.removeClass("visible");
     var evt = new Event('closed');
     evt.result = null;
@@ -134,12 +146,14 @@ module.exports = (function (elmHost) {
     _evtTarget.dispatchEvent(evt);
   }
 
-  function onSuggestionClick() {
+  function onSuggestionClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
     close($(this).text());
   }
 
   function onKeyDown(e) {
-    var isHidden = e.target.id == "composerHidden";
+    var fromHiddenInput = e.target.id == "composerHidden";
     var handled = false;
     switch (e.code) {
       case "Tab":
@@ -160,7 +174,7 @@ module.exports = (function (elmHost) {
         close(null);
         break;
       case "ArrowDown":
-        if (isHidden) navigateSuggestions("down");
+        if (fromHiddenInput) navigateSuggestions("down");
         else {
           _elmHiddenInput.focus();
           _elmSuggestions.find("span.sel").addClass("focus");
@@ -168,19 +182,26 @@ module.exports = (function (elmHost) {
         handled = true;
         break;
       case "ArrowUp":
-        if (isHidden) {
+        if (fromHiddenInput) {
           navigateSuggestions("up");
           handled = true;
         }
         break;
       case "ArrowLeft":
-        if (isHidden) {
+        if (fromHiddenInput) {
           navigateSuggestions("left");
           handled = true;
         }
         break;
       case "ArrowRight":
-        if (isHidden) {
+        if (fromHiddenInput) {
+          navigateSuggestions("right");
+          handled = true;
+        }
+        // If cursor is at end of pinyin input and user presses right, take it as "down + right"
+        else if (_elmInput[0].selectionStart == _elmInput.val().length) {
+          _elmHiddenInput.focus();
+          _elmSuggestions.find("span.sel").addClass("focus");
           navigateSuggestions("right");
           handled = true;
         }
