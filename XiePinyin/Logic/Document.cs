@@ -28,7 +28,7 @@ namespace XiePinyin.Logic
         public bool Dirty = false;
 
         [JsonIgnore]
-        public DateTime LastChanged = DateTime.UtcNow;
+        public DateTime LastAccessedUtc = DateTime.UtcNow;
 
         public Document(string docId, string name, XieChar[] startText = null)
         {
@@ -70,7 +70,7 @@ namespace XiePinyin.Logic
         {
             Name = newName;
             Dirty = true;
-            LastChanged = DateTime.UtcNow;
+            LastAccessedUtc = DateTime.UtcNow;
         }
 
         /// <summary>
@@ -81,6 +81,7 @@ namespace XiePinyin.Logic
         /// <returns>Selection forwarded to current head.</returns>
         public Selection ForwardSelection(Selection sel, int baseRevId)
         {
+            LastAccessedUtc = DateTime.UtcNow;
             var poss = new int[] { sel.Start, sel.End };
             for (int i = baseRevId + 1; i < Revisions.Count; ++i)
                 ChangeSet.ForwardPositions(Revisions[i].ChangeSet, poss);
@@ -108,7 +109,7 @@ namespace XiePinyin.Logic
             Revisions.Add(new Revision(csToProp));
             HeadText = ChangeSet.Apply(HeadText, csToProp);
             Dirty = true;
-            LastChanged = DateTime.UtcNow;
+            LastAccessedUtc = DateTime.UtcNow;
             selInHead = new Selection { Start = poss[0], End = poss[1], CaretAtStart = sel.CaretAtStart };
         }
     }

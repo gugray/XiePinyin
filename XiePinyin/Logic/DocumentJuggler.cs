@@ -12,9 +12,9 @@ namespace XiePinyin.Logic
         public class Options
         {
             public string DocsFolder;
-            public int UnloadDocAfterSeconds = 600;
+            public int UnloadDocAfterSeconds = 7800; // 2:10h; MUST BE GREATER THAN SessionIdleEndSeconds
             public int SessionRequestExpirySeconds = 10;
-            public int SessionIdleEndSeconds = 36000; // 3600
+            public int SessionIdleEndSeconds = 7200; // 2h
         }
 
         class Session
@@ -124,7 +124,7 @@ namespace XiePinyin.Logic
                             break;
                         }
                         // If we come across a stale document, unload it.
-                        else if (DateTime.UtcNow.Subtract(doc.LastChanged).TotalSeconds > options.UnloadDocAfterSeconds)
+                        else if (DateTime.UtcNow.Subtract(doc.LastAccessedUtc).TotalSeconds > options.UnloadDocAfterSeconds)
                         {
                             docToUnload = doc;
                             keepWorking = true;

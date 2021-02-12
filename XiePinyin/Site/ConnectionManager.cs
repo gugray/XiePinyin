@@ -15,7 +15,7 @@ namespace XiePinyin.Site
             /// <summary>
             /// We terminate sockets that haven't pinged us or sent other messages for this long.
             /// </summary>
-            public int SocketInactivitySeconds = 12000; // 120
+            public int SocketInactivitySeconds = 120;
         }
 
         class ManagedConnection

@@ -2,8 +2,6 @@
 var $ = require("jquery");
 var CS = require('./editor/changeset');
 
-//const pingInterval = 30000;
-//const sendChangeInterval = 5000;
 const pingInterval = 15000;
 const sendChangeInterval = 500;
 
