@@ -49,7 +49,12 @@ gulp.task('svelte-pack', function () {
             use: [{
               loader: 'svelte-loader',
               options: {
-                preprocess: require('./svelte.config.js').preprocess
+                preprocess: require('./svelte.config.js').preprocess,
+                onwarn: (warning, handler) => {
+                  const { code, frame } = warning;
+                  if (code === "css-unused-selector") return;
+                  else handler(warning);
+                },
               }
             }]
           }

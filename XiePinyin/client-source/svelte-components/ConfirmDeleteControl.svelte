@@ -36,20 +36,16 @@
 
 <style lang="less">
   @import "../style-defines.less";
+  p { margin-bottom: 0; width: 100%; }
+  p.error { color: red; font-style: italic; }
+  .buttons { text-align: right; }
 </style>
 
-<section class="login modal">
-  <div class="box">
-    <h2>Confirm delete</h2>
-    <div class="content">
-      <p>
-        Are you sure you want to delete this document? It cannot be restored later.<br /><br />
-        Name: <i>{docName}</i>
-      </p>
-      <p class="buttons">
-        <Button label="Delete" round={false} enabled="true" on:click={onDeleteClick} />
-        <Button label="Cancel" round={false} enabled="true" on:click={onCancelClick} />
-      </p>
-    </div>
-  </div>
-</section>
+<p>
+  Are you sure you want to delete this document? It cannot be restored later.<br /><br />
+  Name: <i>{docName}</i>
+</p>
+<p class="buttons">
+  <Button label="Delete" round={false} enabled="true" on:click={onDeleteClick} />
+  <Button label="Cancel" round={false} enabled="true" on:click={onCancelClick} />
+</p>

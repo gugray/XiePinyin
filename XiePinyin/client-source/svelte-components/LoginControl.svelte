@@ -4,6 +4,8 @@
   import Button from "./Button.svelte";
   var JQ = require("jquery");
 
+  export let showCancelButton = true;
+
   const dispatch = createEventDispatcher();
 
   let secretInput;
@@ -59,20 +61,19 @@
     border: 1pt solid @lightCursorColor; position: relative; float: right; width: 230px;
     padding: 2px 5px; margin-top: -2px;
   }
+  p { margin-bottom: 0; width: 100%; }
+  p.error { color: red; font-style: italic; }
+  .buttons { text-align: right; }
+
 </style>
 
-<section class="login modal">
-  <div class="box">
-    <h2>Log in to 写拼音</h2>
-    <div class="content">
-      <p>
-        Enter your secret: <input type="password" bind:this={secretInput} bind:value={secret} on:keydown={onKeyDown} />
-      </p>
-      <p class="error">{resultMessage}&nbsp;</p>
-      <p class="buttons">
-        <Button label="Log in" round={false} enabled={loginEnabled} on:click={onLoginClick} />
-        <Button label="Cancel" round={false} enabled="true" on:click={onCancelClick} />
-      </p>
-    </div>
-  </div>
-</section>
+<p>
+  Enter your secret: <input type="password" bind:this={secretInput} bind:value={secret} on:keydown={onKeyDown} />
+</p>
+<p class="error">{resultMessage}&nbsp;</p>
+<p class="buttons">
+  <Button label="Log in" round={false} enabled={loginEnabled} on:click={onLoginClick} />
+  {#if showCancelButton}
+  <Button label="Cancel" round={false} enabled="true" on:click={onCancelClick} />
+  {/if}
+</p>

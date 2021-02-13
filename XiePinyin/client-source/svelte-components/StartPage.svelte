@@ -3,8 +3,9 @@
 	import { localStore } from "./localStore";
 	import { getRandomId } from "./idGenerator";
 	import Button from "./Button.svelte";
-  import ConfirmDelete from "./ConfirmDelete.svelte";
-	import LoginWindow from "./LoginWindow.svelte";
+  import ConfirmDeleteControl from "./ConfirmDeleteControl.svelte";
+	import LoginControl from "./LoginControl.svelte";
+  import ModalDialog from "./ModalDialog.svelte";
 	import DocListItem from "./DocListItem.svelte";
 	import CreateDoc from "./CreateDoc.svelte";
 	var JQ = require("jquery");
@@ -90,30 +91,30 @@
 		docToDelName = e.detail.name;
 		showConfirmDelete = true;
 	}
-	
+
 	function onConfirmDeleteDone(e) {
 		showConfirmDelete = false;
 		if (!e.detail) return;
-    const id = e.detail;
-    var req = JQ.ajax({
-      url: "/api/doc/delete/",
-      type: "POST",
-      data: {
-        docId: id,
-      }
-    });
-    req.done(function (data) {
-      if (data.result != "OK") showError("Something went wrong.");
-      else {
-        let docs = $onlineDocs;
-        docs = docs.filter(itm => itm.id != id);
-        onlineDocs.set(docs);
-      }
-    });
-    req.fail(function () {
-      showError("Failed to delete online document.");
-    });
-  }
+		const id = e.detail;
+		var req = JQ.ajax({
+			url: "/api/doc/delete/",
+			type: "POST",
+			data: {
+				docId: id,
+			}
+		});
+		req.done(function (data) {
+			if (data.result != "OK") showError("Something went wrong.");
+			else {
+				let docs = $onlineDocs;
+				docs = docs.filter(itm => itm.id != id);
+				onlineDocs.set(docs);
+			}
+		});
+		req.fail(function () {
+			showError("Failed to delete online document.");
+		});
+	}
 
 	function onClickLogInOut() {
 		isLoggedIn = auth.isLoggedIn();
@@ -163,10 +164,14 @@
 	<h1><img src="/xie-with-label.svg" alt="Fictive xiě character" /> <span>Biscriptal Editor</span> <Button label="{logInOutText}" enabled="true" on:click={onClickLogInOut} /></h1>
 
 	{#if showLogin}
-	<LoginWindow on:done={onLoginDone} />
+	<ModalDialog title="Log in to 写拼音">
+		<LoginControl on:done={onLoginDone} />
+	</ModalDialog>
 	{/if}
 	{#if showConfirmDelete}
-	<ConfirmDelete on:done={onConfirmDeleteDone} docName={docToDelName} docId={docToDelId} />
+	<ModalDialog title="Confirm delete">
+		<ConfirmDeleteControl on:done={onConfirmDeleteDone} docName={docToDelName} docId={docToDelId} />
+	</ModalDialog>
 	{/if}
 
 	<h2>

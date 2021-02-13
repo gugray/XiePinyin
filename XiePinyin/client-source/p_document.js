@@ -1,5 +1,6 @@
 ﻿"use strict";
 var $ = require("jquery");
+var auth = require("./auth.js");
 var localDocData = require("./localdocdata");
 var onlineDocData = require("./onlinedocdata");
 
@@ -9,6 +10,15 @@ const htmlPage = `
 <div class="document">
   <div class="header"></div>
   <div class="page"></div>
+</div>
+`;
+
+const htmlLogin = `
+<div class="document">
+  <article>
+    <h1>Log in to open document</h1>
+    <p class="loginPara"></p>
+  </article>
 </div>
 `;
 
@@ -50,7 +60,27 @@ module.exports = (function (elmHost, path, navigateTo) {
     lastHanziInputType: "simp",
   };
 
-  loadDoc();
+  if (_local) loadLocalDoc();
+  else if (!auth.isLoggedIn()) loginAndLoadOnline();
+  else loadOnlineDoc();
+
+  function loginAndLoadOnline() {
+    _elmHost.empty();
+    _elmHost.html(htmlLogin);
+
+    var loginCtrl = new Comps.LoginControl({
+      target: _elmHost.find(".loginPara")[0],
+      props: {
+        showCancelButton: false,
+      }
+    });
+    loginCtrl.$on("done", () => {
+      if (!auth.isLoggedIn()) return;
+      _elmHost.empty();
+      loadOnlineDoc();
+    });
+
+  }
 
   function initError(msg) {
     _elmHost.empty();
@@ -65,16 +95,15 @@ module.exports = (function (elmHost, path, navigateTo) {
     _elmHost.find(".reload").attr("href", window.location.href);
   }
 
-  function loadDoc() {
-    // Local document (including sample)
-    if (_local) {
-      _docData = localDocData(_id);
-      _docData.startSession((error, loadData) => {
-        if (error) initError(true, error);
-        else init(loadData.name, loadData.baseText);
-      });
-      return;
-    }
+  function loadLocalDoc() {
+    _docData = localDocData(_id);
+    _docData.startSession((error, loadData) => {
+      if (error) initError(true, error);
+      else init(loadData.name, loadData.baseText);
+    });
+  }
+
+  function loadOnlineDoc() {
     // Retrieve online document
     var req = $.ajax({
       url: "/api/doc/open/",
