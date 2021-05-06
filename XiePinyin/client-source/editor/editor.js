@@ -2,6 +2,7 @@
 var $ = require("jquery");
 var converter = require("./converter");
 var composer = require("./composer");
+const { compose } = require("./changeset");
 
 const htmlHanziCaret = '<div class="caret hanzi hidden">&nbsp;</div>';
 const htmlPinyinCaret = '<div class="caret pinyin hidden">&nbsp;</div>';
@@ -58,7 +59,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     // Composer
     _elmHost.append(_elmComposer);
     _composer = composer(_elmComposer);
-    _composer.closed(onComposerClosed);
+    _composer.insert(onComposerInsert);
 
     // Mouse and keyboard handlers
     _elmHost.mousedown(onMouseDown);
@@ -117,32 +118,30 @@ module.exports = (function (elmHost, shortcutHandler) {
     _suppressHiddenInfputChange = true;
     _elmHiddenInput.val("");
     _suppressHiddenInfputChange = false;
-    // If we're in alfa mode, insert characters into text. This also gracefully handles pasting.
-    if (_inputType == "alfa") {
-      let text = [];
-      for (const c of val) text.push({ hanzi: c });
-      replaceSel(text);
-    }
-    // In biscriptal mode, show composer window
-    else {
-      // But if there are multiple characters (paste?!), just swalling zis.
-      if (val.length > 1) return;
-      _elmHiddenInput.prop("disabled", true);
-      setCaretBlinkie(false);
-      let caretTop = _elmHanziCaret.offset().top - _elmHost.offset().top;
-      let caretBottom = _elmPinyinCaret.offset().top - _elmHost.offset().top+ _elmPinyinCaret.height();
-      let caretLeft = _elmHanziCaret.offset().left - _elmHost.offset().left;
-      _composer.show(val, _inputType, caretLeft, caretTop, caretBottom);
-    }
+    // Insert characters into text. This also gracefully handles pasting.
+    let text = [];
+    for (const c of val) text.push({ hanzi: c });
+    const prompt = replaceSel(text);
+    // If we're in biscriptal mode, update composer widget
+    if (_inputType != "alfa")
+      updateComposer(prompt);
   }
 
-  function onComposerClosed(e) {
-    _elmHiddenInput.prop("disabled", false);
-    _elmHiddenInput.focus();
-    setCaretBlinkie(true, true);
-    if (e.result) {
-      replaceSel(e.result);
+  function updateComposer(prompt) {
+    if (prompt.length == 0) {
+      _composer.close();
+      return;
     }
+    let caretTop = _elmHanziCaret.offset().top - _elmHost.offset().top;
+    let caretBottom = _elmPinyinCaret.offset().top - _elmHost.offset().top + _elmPinyinCaret.height();
+    let caretLeft = _elmHanziCaret.offset().left - _elmHost.offset().left;
+    _composer.refresh(prompt, _inputType, caretLeft, caretTop, caretBottom);
+  }
+  
+  function onComposerInsert(e) {
+    if (!e.result) return;
+    setSel(_sel.end - e.prompt.length, _sel.end);
+    replaceSel(e.result);
   }
 
   function trackSelectionTo(ix) {
@@ -186,13 +185,17 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function onKeyDown(e) {
-    var plain = !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey;
+    if (_composer.isVisible()) {
+      if (_composer.onKeyDown(e))
+        return;
+    }
     var handled = false;
     switch (e.code) {
       case "Backspace":
         if (_sel.end != _sel.start || _sel.start > 0) {
           if (_sel.end == _sel.start) setSel(_sel.start - 1, _sel.end, _sel.caretAtStart);
-          replaceSel([]);
+          const prompt = replaceSel([]);
+          updateComposer(prompt);
           handled = true;
         }
         break;
@@ -261,7 +264,24 @@ module.exports = (function (elmHost, shortcutHandler) {
       }
     });
 
+    // Get old content from DOM
     var oldCont = converter.dom2text(_elmParas);
+
+    // If new text is a single character, extract a composition prompt from the text before the caret
+    const prompt = [];
+    if (chars.length == 0 || (chars.length == 1 && !chars[0].pinyin)) {
+      if (chars.length == 1) prompt.unshift(chars[0]);
+      for (let i = _sel.start - 1; i >= 0; --i) {
+        const char = oldCont[i];
+        if (!char) continue;
+        if (char.pinyin && char.pinyin != "") break;
+        if (/\p{Punctuation}/.test(char.hanzi)) break;
+        if (/\s/.test(char.hanzi)) break;
+        prompt.unshift(char);
+      }
+    }
+
+    // Assemble new content in one
     var newCont = [];
     for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
     for (var i = 0; i < chars.length; ++i) newCont.push(chars[i]);
@@ -272,7 +292,11 @@ module.exports = (function (elmHost, shortcutHandler) {
     setSel(_sel.start + chars.length, _sel.start + chars.length, false);
     if (_elmHiddenInput.is(":focus")) setCaretBlinkie(true, true);
 
+    // Dispatch onReplace event
     _elmHost[0].dispatchEvent(evt);
+
+    // Return composition prompt
+    return prompt;
   }
 
   function handleDown(shiftKey) {
@@ -438,6 +462,12 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function setSel(start, end, caretAtStart, preserveDesiredCaretX) {
+
+    if (_sel.start == start && _sel.end == end && _sel.caretAtStart == caretAtStart)
+      return;
+
+    _composer.close();
+
     _sel.start = start;
     _sel.end = end;
     _sel.caretAtStart = caretAtStart;
