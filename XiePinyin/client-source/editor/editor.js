@@ -118,6 +118,12 @@ module.exports = (function (elmHost, shortcutHandler) {
     _suppressHiddenInfputChange = true;
     _elmHiddenInput.val("");
     _suppressHiddenInfputChange = false;
+    // If text to insert is a single punctuation mark: insert current suggestion, if any
+    var sugg = _composer.getSuggestion();
+    if (sugg && _sel.end == _sel.start && /^\p{Punctuation}$/u.test(val)) {
+      onComposerInsert(sugg);
+      _composer.close();
+    }
     // Insert characters into text. This also gracefully handles pasting.
     let text = [];
     for (const c of val) text.push({ hanzi: c });
@@ -275,7 +281,7 @@ module.exports = (function (elmHost, shortcutHandler) {
         const char = oldCont[i];
         if (!char) continue;
         if (char.pinyin && char.pinyin != "") break;
-        if (/\p{Punctuation}/.test(char.hanzi)) break;
+        if (/\p{Punctuation}/u.test(char.hanzi)) break;
         if (/\s/.test(char.hanzi)) break;
         prompt.unshift(char);
       }

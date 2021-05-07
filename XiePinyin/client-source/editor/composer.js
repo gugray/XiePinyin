@@ -110,16 +110,34 @@ module.exports = (function (elmHost) {
     evt.result = null;
     if (selectedText) {
       evt.prompt = _prompt;
-      var hanzi = selectedText;
-      var pinyin = _elmSuggestions.data("pinyinSylls");
-      hanzi = hanzi.split(/(\s+)/).filter((e) => e.trim().length > 0);
-      pinyin = pinyin.split(/(\s+)/).filter((e) => e.trim().length > 0);
-      evt.result = [];
-      for (var i = 0; i < hanzi.length; ++i)
-        evt.result.push({ hanzi: hanzi[i], pinyin: pinyin[i] });
+      evt.result = constructSuggestion(selectedText);
       if (withSpace) evt.result.push({ hanzi: " ", pinyin: " " });
     }
     _evtTarget.dispatchEvent(evt);
+  }
+
+  function constructSuggestion(selectedText) {
+    var hanzi = selectedText;
+    var pinyin = _elmSuggestions.data("pinyinSylls");
+    hanzi = hanzi.split(/(\s+)/).filter((e) => e.trim().length > 0);
+    pinyin = pinyin.split(/(\s+)/).filter((e) => e.trim().length > 0);
+    var result = [];
+    for (var i = 0; i < hanzi.length; ++i)
+      result.push({ hanzi: hanzi[i], pinyin: pinyin[i] });
+    return result;
+  }
+
+  function getSuggestion() {
+    if (!isVisible()) return null;
+    if (_elmSuggestions.find("span.sel").length == 0) return null;
+    return {
+      prompt: _prompt,
+      result: constructSuggestion(_elmSuggestions.find("span.sel").text()),
+    };
+  }
+
+  function isVisible() {
+    return _elmHost.hasClass("visible");
   }
 
   function onSuggestionClick(e) {
@@ -241,10 +259,9 @@ module.exports = (function (elmHost) {
     close: function () {
       close(null);
     },
+    getSuggestion,
     onKeyDown: onKeyDown,
-    isVisible: function () {
-      return _elmHost.hasClass("visible");
-    },
+    isVisible,
     insert: function (handler) {
       _evtTarget.addEventListener("insert", handler);
     },
