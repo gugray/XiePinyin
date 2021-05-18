@@ -16,6 +16,7 @@ module.exports = (function (elmHost) {
   var _prompt = null;
   var _plainPrompt = "";
   var _glueBottom = false;
+  var _reqIx = 0;
   var _caretPosAtShow = {
     left: 0,
     top: 0,
@@ -84,8 +85,9 @@ module.exports = (function (elmHost) {
   function refreshSuggestions() {
 
     // If visible, disable current content while we're waiting for results
-    _elmSuggestions.addClass("loading")
+    _elmSuggestions.addClass("loading");
 
+    let reqIx = ++_reqIx;
     var req = $.ajax({
       url: "/api/compose/",
       type: "POST",
@@ -96,6 +98,10 @@ module.exports = (function (elmHost) {
     });
     req.done(function (data) {
 
+      // An earlier request just finished: ignore; we're behind the times
+      if (_reqIx != reqIx) return;
+
+      // No results: hide widget
       if (data.words.length == 0) {
         close(false);
         return;
