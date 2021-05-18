@@ -23,8 +23,8 @@ namespace XiePinyin.Logic
             {
                 readingsTrad = ser.Deserialize(sr, typeof(List<CharReading>)) as List<CharReading>;
             }
-            addPunctReadings(readingsSimp, true);
-            addPunctReadings(readingsTrad, false);
+            //addPunctReadings(readingsSimp, true);
+            //addPunctReadings(readingsTrad, false);
         }
 
         void addPunctReadings(List<CharReading> readings, bool simp)

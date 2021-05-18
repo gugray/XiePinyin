@@ -125,16 +125,12 @@ module.exports = (function (elmHost, shortcutHandler) {
       onComposerInsert(sugg);
       _composer.close();
     }
-    // Insert characters into text. This also gracefully handles pasting.
+    // Insert characters into text. This also gracefully handles pasting into hidden input field.
     let text = [];
-    // TO-DO:
-    // -- Hints with delay
-    // -- Hint widget design
     for (const c of val) text.push({ hanzi: c });
     const prompt = replaceSel(text);
-    // If we're in biscriptal mode, update composer widget
-    if (_inputType != "alfa")
-      updateComposer(prompt);
+    // Update composer widget
+    updateComposer(prompt);
   }
 
   function updateComposer(prompt) {

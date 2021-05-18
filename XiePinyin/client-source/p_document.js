@@ -57,7 +57,6 @@ module.exports = (function (elmHost, path, navigateTo) {
   var _docData = null;
   var _state = {
     inputType: initialInputType,
-    lastHanziInputType: "simp",
   };
 
   if (_local) loadLocalDoc();
@@ -139,7 +138,6 @@ module.exports = (function (elmHost, path, navigateTo) {
       }
     });
     _header.$on("inputType", e => {
-      if (e.detail.val != "alfa") _state.lastHanziInputType = e.detail.val;
       _state.inputType = e.detail.val;
       _editor.setInputType(_state.inputType);
     });
@@ -162,7 +160,7 @@ module.exports = (function (elmHost, path, navigateTo) {
     switch (e.code) {
       case "KeyM":
         if (ctrlOnly) {
-          let newInputType = _state.inputType == "alfa" ? _state.lastHanziInputType : "alfa";
+          let newInputType = _state.inputType == "simp" ? "trad" : "simp";
           _header.$set({ inputType: newInputType });
           _state.inputType = newInputType;
           _editor.setInputType(newInputType);

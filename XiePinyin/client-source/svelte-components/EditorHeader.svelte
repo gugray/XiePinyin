@@ -45,7 +45,6 @@
   <div class="group grpInputType">
     <div class="item button" class:sel={inputType == "simp"} on:click={ e=> onInputType('simp') }>简体</div>
     <div class="item button" class:sel={inputType == "trad"} on:click={ e=> onInputType('trad') }>繁體</div>
-    <div class="item button" class:sel={inputType == "alfa"} on:click={ e=> onInputType('alfa') }>Alpha</div>
   </div>
 </div>
 <div class="close" on:click={onCloseClicked}>Close</div>
