@@ -55,7 +55,11 @@ namespace XiePinyin
             services.AddSingleton(new Composer(config["sourcesFolder"]));
 
             asm = new AuthSessionManager(config["secretsFile"], Log.Logger);
-            var dopt = new DocumentJuggler.Options { DocsFolder = config["docsFolder"]  };
+            var dopt = new DocumentJuggler.Options
+            {
+                DocsFolder = config["docsFolder"],
+                ExportsFolder = config["exportsFolder"],
+            };
             docJuggler = new DocumentJuggler(dopt, Log.Logger);
             var connMgr = new ConnectionManager(docJuggler, Log.Logger);
             broadcaster = new Broadcaster(connMgr, Log.Logger);

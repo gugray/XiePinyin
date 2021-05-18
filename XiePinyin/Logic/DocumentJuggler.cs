@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using System.IO;
 using Newtonsoft.Json;
 using Serilog;
@@ -12,6 +13,7 @@ namespace XiePinyin.Logic
         public class Options
         {
             public string DocsFolder;
+            public string ExportsFolder;
             public int UnloadDocAfterSeconds = 7800; // 2:10h; MUST BE GREATER THAN SessionIdleEndSeconds
             public int SessionRequestExpirySeconds = 10;
             public int SessionIdleEndSeconds = 7200; // 2h
@@ -204,7 +206,7 @@ namespace XiePinyin.Logic
         }
 
         /// <summary>
-        /// <para>Loads a doc from disk if it exists but no currently in memory.</para></para>
+        /// <para>Loads a doc from disk if it exists but no currently in memory.</para>
         /// <para>Must be called from within lock!</para>
         /// </summary>
         void ensureDocLoaded(string docId)
@@ -216,6 +218,24 @@ namespace XiePinyin.Logic
                 var doc = Document.LoadFromFile(fn);
                 docs.Add(doc);
             }
+        }
+
+        public async Task<string> ExportDocx(string docId)
+        {
+            XieChar[] text = null;
+            lock (lockObject)
+            {
+                ensureDocLoaded(docId);
+                var doc = docs.Find(x => x.DocId == docId);
+                if (doc == null) return null;
+                text = new XieChar[doc.HeadText.Length];
+                for (int i = 0; i < text.Length; ++i) text[i] = doc.HeadText[i];
+            }
+            var exportFileName = docId + "-" + ShortIdGenerator.Next() + ".docx";
+            var exportFilePath = Path.Combine(options.ExportsFolder, exportFileName);
+            var exporter = new DocxExporter(text, exportFilePath);
+            await exporter.Export();
+            return exportFileName;
         }
 
         public string RequestSession(string docId)

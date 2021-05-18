@@ -141,7 +141,8 @@ module.exports = (function (elmHost, path, navigateTo) {
       _state.inputType = e.detail.val;
       _editor.setInputType(_state.inputType);
     });
-    _header.$on("close", () => {
+    _header.$on("exportDocx", onExportDoc);
+    _header.$on("close", _ => {
       //_docData.saveContent(_editor.getContent());
       _navigateTo("");
     });
@@ -194,6 +195,28 @@ module.exports = (function (elmHost, path, navigateTo) {
     if (_docData.closeSession) _docData.closeSession();
     _header.$destroy();
     _header = null;
+  }
+
+  function onExportDoc() {
+    _header.$set({ docxEnabled: false });
+    var req = $.ajax({
+      url: "/api/doc/exportdocx/",
+      type: "POST",
+      data: {
+        docId: _id,
+      }
+    });
+    req.done(function (data) {
+      _header.$set({ docxEnabled: true });
+      if (!data.result == "OK") return;
+      const fn = data.data;
+      window.open("/api/doc/download?name=" + fn, '_blank');
+      //window.location.href = "/api/doc/download?name=" + fn;
+    });
+    req.fail(function () {
+      _header.$set({ docxEnabled: true });
+    });
+
   }
 
   return {

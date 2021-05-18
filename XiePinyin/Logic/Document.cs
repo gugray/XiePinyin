@@ -41,10 +41,7 @@ namespace XiePinyin.Logic
 
         public void SaveToFile(string fn)
         {
-            // We save head: it will be start text upon deserialization
-            // I.e., we don't save history.
-            var toSave = new Document(DocId, Name, HeadText);
-            string json = JsonConvert.SerializeObject(toSave, Formatting.Indented);
+            string json = serializeToJson();
             Dirty = false;
             // Save in background thready, so caller can move on with their life
             // This save function gets called from within a lock
@@ -54,15 +51,29 @@ namespace XiePinyin.Logic
             }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
+        string serializeToJson()
+        {
+            // We save head: it will be start text upon deserialization
+            // I.e., we don't save history.
+            var toSave = new Document(DocId, Name, HeadText);
+            string json = JsonConvert.SerializeObject(toSave, Formatting.Indented);
+            return json;
+        }
+
+        static Document deserializeFromJson(TextReader sr)
+        {
+            JsonSerializer ser = new JsonSerializer();
+            var res = (Document)ser.Deserialize(sr, typeof(Document));
+            res.HeadText = res.StartText;
+            res.Revisions.Add(new Revision(ChangeSet.CreateIdent(res.StartText.Length)));
+            return res;
+        }
+
         public static Document LoadFromFile(string fn)
         {
             using (var sr = new StreamReader(fn))
             {
-                JsonSerializer ser = new JsonSerializer();
-                var res = (Document)ser.Deserialize(sr, typeof(Document));
-                res.HeadText = res.StartText;
-                res.Revisions.Add(new Revision(ChangeSet.CreateIdent(res.StartText.Length)));
-                return res;
+                return deserializeFromJson(sr);
             }
         }
 
