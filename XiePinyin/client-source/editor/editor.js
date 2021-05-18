@@ -118,14 +118,18 @@ module.exports = (function (elmHost, shortcutHandler) {
     _suppressHiddenInfputChange = true;
     _elmHiddenInput.val("");
     _suppressHiddenInfputChange = false;
-    // If text to insert is a single punctuation mark: insert current suggestion, if any
+    // When typing a single punctuation mark, or a space:
+    // Insert current suggestion, if any
     var sugg = _composer.getSuggestion();
-    if (sugg && _sel.end == _sel.start && /^\p{Punctuation}$/u.test(val)) {
+    if (sugg && _sel.end == _sel.start && /^[\s\p{Punctuation}]$/u.test(val)) {
       onComposerInsert(sugg);
       _composer.close();
     }
     // Insert characters into text. This also gracefully handles pasting.
     let text = [];
+    // TO-DO:
+    // -- Hints with delay
+    // -- Hint widget design
     for (const c of val) text.push({ hanzi: c });
     const prompt = replaceSel(text);
     // If we're in biscriptal mode, update composer widget
@@ -173,6 +177,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     if (e.originalEvent.shiftKey) trackSelectionTo(ix);
     // Just a click
     else setSel(ix, ix, false);
+    _composer.close();
     // Selection now tracks cursor
     _mousePressSelStartIx = _sel.caretAtStart ? _sel.end : _sel.start;
     setCaretBlinkie(true, true);
@@ -199,7 +204,10 @@ module.exports = (function (elmHost, shortcutHandler) {
     switch (e.code) {
       case "Backspace":
         if (_sel.end != _sel.start || _sel.start > 0) {
+          // If no selection, select last char before cursor
           if (_sel.end == _sel.start) setSel(_sel.start - 1, _sel.end, _sel.caretAtStart);
+          // If there is a non-empty selection, kill composer. (We want to keep it shown in selectionless Backspacing.)
+          else _composer.close();
           const prompt = replaceSel([]);
           updateComposer(prompt);
           handled = true;
@@ -207,11 +215,6 @@ module.exports = (function (elmHost, shortcutHandler) {
         break;
       case "Enter":
         replaceSel([{ hanzi: "\n", pinyin: "\n" }]);
-        handled = true;
-        break;
-      case "Space":
-        let spaceChar = _inputType == "alfa" ? { hanzi: " " } : { hanzi: " ", pinyin: " " };
-        replaceSel([spaceChar]);
         handled = true;
         break;
       case "ArrowLeft":
@@ -275,7 +278,7 @@ module.exports = (function (elmHost, shortcutHandler) {
 
     // If new text is a single character, extract a composition prompt from the text before the caret
     const prompt = [];
-    if (chars.length == 0 || (chars.length == 1 && !chars[0].pinyin)) {
+    if (chars.length == 0 || (chars.length == 1 && !chars[0].pinyin && !/\s/.test(chars[0].hanzi))) {
       if (chars.length == 1) prompt.unshift(chars[0]);
       for (let i = _sel.start - 1; i >= 0; --i) {
         const char = oldCont[i];
@@ -338,6 +341,7 @@ module.exports = (function (elmHost, shortcutHandler) {
         if (nextIx <= nonCaretEnd) setSel(nextIx, nonCaretEnd, true);
         else setSel(nonCaretEnd, nextIx, false);
       }
+      _composer.close();
       setCaretBlinkie(true, true);
     }
   }
@@ -373,6 +377,7 @@ module.exports = (function (elmHost, shortcutHandler) {
         if (prevIx <= nonCaretEnd) setSel(prevIx, nonCaretEnd, true);
         else setSel(nonCaretEnd, prevIx, false);
       }
+      _composer.close();
       setCaretBlinkie(true, true);
     }
   }
@@ -392,6 +397,7 @@ module.exports = (function (elmHost, shortcutHandler) {
         else setSel(_sel.start, _sel.end - 1, _sel.start == _sel.end - 1);
       }
     }
+    _composer.close();
     setCaretBlinkie(true, true);
     broadcastSelChange();
   }
@@ -418,6 +424,7 @@ module.exports = (function (elmHost, shortcutHandler) {
         }
       }
     }
+    _composer.close();
     setCaretBlinkie(true, true);
     broadcastSelChange();
   }
@@ -471,8 +478,6 @@ module.exports = (function (elmHost, shortcutHandler) {
 
     if (_sel.start == start && _sel.end == end && _sel.caretAtStart == caretAtStart)
       return;
-
-    _composer.close();
 
     _sel.start = start;
     _sel.end = end;

@@ -23,6 +23,10 @@ namespace XiePinyin.Site
 
         public IActionResult Get([FromForm]string prompt, [FromForm] bool isSimp)
         {
+#if DEBUG
+            if (prompt[0] == 'a') System.Threading.Thread.Sleep(2000);
+#endif
+
             List<string> pinyinSylls;
             var words = composer.Resolve(prompt, isSimp, out pinyinSylls);
             ComposeResult res = new ComposeResult

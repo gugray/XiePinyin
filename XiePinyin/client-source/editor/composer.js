@@ -14,7 +14,13 @@ module.exports = (function (elmHost) {
   var _evtTarget = new EventTarget();
   var _inputType = null;
   var _prompt = null;
+  var _plainPrompt = "";
   var _glueBottom = false;
+  var _caretPosAtShow = {
+    left: 0,
+    top: 0,
+    bottom: 0,
+  };
 
   init();
 
@@ -26,58 +32,78 @@ module.exports = (function (elmHost) {
     _elmHost.focusout(function () {
       setTimeout(function () {
         if (_elmHost.find(":focus").length > 0) return;
-        if (document.hasFocus()) close(null);
+        if (document.hasFocus()) close(true);
       }, 0);
     });
   }
 
   function refresh(prompt, inputType, caretLeft, caretTop, caretBottom) {
+
+    const plainPrompt = getPlainStr(prompt);
+    var promptUpdate = _plainPrompt.length > 0 && plainPrompt.startsWith(_plainPrompt);
+    promptUpdate |= plainPrompt.length > 0 && _plainPrompt.startsWith(plainPrompt);
+
     _inputType = inputType;
     _prompt = prompt;
+    _plainPrompt = plainPrompt;
 
-    // If currently not visible, calculate where window will go
-    if (!_elmHost.hasClass("visible")) {
-      let cx = caretLeft - _elmHost.width() / 2;
-      if (cx < 0) cx = 0;
-      else if (cx + _elmHost.width() > _elmHost.parent().outerWidth()) cx = _elmHost.parent().outerWidth() - _elmHost.width();
-      let cy = caretBottom;
-      _glueBottom = false;
-      if (cy + _elmHost.height() + _elmHost.parent().offset().top > $(window).height()) {
-        cy = caretTop - _elmHost.height();
-        _glueBottom = true;
-      }
-      _elmHost.css("left", cx + "px");
-      _elmHost.css("top", cy + "px");
+    // Store current caret position, which we will use to position composition window when results come in
+    // Do this when first shown (so windows doesn't jump around as user keeps typing)
+    // And if caret Y changes (when input wrapped to new line)
+    if ((!promptUpdate && !isVisible()) || caretBottom != _caretPosAtShow.bottom) {
+      _caretPosAtShow.left = caretLeft;
+      _caretPosAtShow.top = caretTop;
+      _caretPosAtShow.bottom = caretBottom;
     }
-    // If visible, disable current content while we're waiting for results
-    _elmSuggestions.addClass("loading")
     refreshSuggestions();
   }
 
-  
+  function positionHost() {
+
+    _elmHost.css("left", "");
+
+    let cx = _caretPosAtShow.left - 10;
+    if (cx + _elmHost.width() > _elmHost.parent().outerWidth())
+      cx = _elmHost.parent().outerWidth() - _elmHost.width();
+    let cy = _caretPosAtShow.bottom;
+    _glueBottom = false;
+    if (cy + _elmHost.height() + _elmHost.parent().offset().top > $(window).height()) {
+      cy = _caretPosAtShow.top - _elmHost.height();
+      _glueBottom = true;
+    }
+    _elmHost.css("left", cx + "px");
+    _elmHost.css("top", cy + "px");
+  }
+
+  function getPlainStr(biStr) {
+    let str = "";
+    for (const x of biStr) str += x.hanzi;
+    return str;
+  }
 
   function refreshSuggestions() {
-    let prompt = "";
-    for (const x of _prompt) prompt += x.hanzi;
+
+    // If visible, disable current content while we're waiting for results
+    _elmSuggestions.addClass("loading")
+
     var req = $.ajax({
       url: "/api/compose/",
       type: "POST",
       data: {
-        prompt: prompt,
+        prompt: _plainPrompt,
         isSimp: _inputType == "simp",
       }
     });
     req.done(function (data) {
 
       if (data.words.length == 0) {
-        close();
+        close(false);
         return;
       }
 
       let ofsBefore = _elmHost.offset();
       let heightBefore = _elmHost.height();
       _elmSuggestions.removeClass("loading");
-      _elmSuggestions.removeClass("info");
       _elmSuggestions.html("");
       _elmHost.addClass("visible");
 
@@ -94,30 +120,17 @@ module.exports = (function (elmHost) {
         let heightDiff = _elmHost.height() - heightBefore;
         _elmHost.offset({ top: ofsBefore.top - heightDiff, left: ofsBefore.left });
       }
+
+      positionHost();
+
     });
     req.fail(function () {
-      close();
+      close(false);
     });
   }
 
-  function close(selectedText, withSpace) {
-    _elmSuggestions.removeClass("loading");
-    _elmSuggestions.removeClass("info");
-    _elmSuggestions.removeClass("error");
-    _elmSuggestions.html("");
-    _elmHost.removeClass("visible");
-    var evt = new Event('insert');
-    evt.result = null;
-    if (selectedText) {
-      evt.prompt = _prompt;
-      evt.result = constructSuggestion(selectedText);
-      if (withSpace) evt.result.push({ hanzi: " ", pinyin: " " });
-    }
-    _evtTarget.dispatchEvent(evt);
-  }
-
-  function constructSuggestion(selectedText) {
-    var hanzi = selectedText;
+  function constructSuggestion(convertedText) {
+    var hanzi = convertedText;
     var pinyin = _elmSuggestions.data("pinyinSylls");
     hanzi = hanzi.split(/(\s+)/).filter((e) => e.trim().length > 0);
     pinyin = pinyin.split(/(\s+)/).filter((e) => e.trim().length > 0);
@@ -125,6 +138,32 @@ module.exports = (function (elmHost) {
     for (var i = 0; i < hanzi.length; ++i)
       result.push({ hanzi: hanzi[i], pinyin: pinyin[i] });
     return result;
+  }
+
+  function fire(convertedText) {
+
+    var evt = new Event('insert');
+    evt.result = null;
+    evt.prompt = _prompt;
+    evt.result = constructSuggestion(convertedText);
+
+    close(true);
+
+    _evtTarget.dispatchEvent(evt);
+
+  } 
+
+  function close(reset) {
+
+    _elmSuggestions.removeClass("loading");
+    _elmSuggestions.removeClass("error");
+    _elmSuggestions.html("");
+    _elmHost.removeClass("visible");
+
+    if (reset) {
+      _prompt = null;
+      _plainPrompt = "";
+    }
   }
 
   function getSuggestion() {
@@ -143,22 +182,18 @@ module.exports = (function (elmHost) {
   function onSuggestionClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    close($(this).text());
+    fire($(this).text());
   }
 
   function onKeyDown(e) {
     var handled = false;
     switch (e.code) {
       case "Enter":
-        close(_elmSuggestions.find("span.sel").text());
-        handled = true;
-        break;
-      case "Space":
-        close(_elmSuggestions.find("span.sel").text(), true);
+        fire(_elmSuggestions.find("span.sel").text());
         handled = true;
         break;
       case "Escape":
-        close(null);
+        close(true);
         handled = true;
         break;
       case "ArrowDown":
@@ -255,15 +290,11 @@ module.exports = (function (elmHost) {
   }
 
   return {
-    refresh: refresh,
-    close: function () {
-      close(null);
-    },
+    refresh,
+    close: _ => close(true),
     getSuggestion,
-    onKeyDown: onKeyDown,
+    onKeyDown,
     isVisible,
-    insert: function (handler) {
-      _evtTarget.addEventListener("insert", handler);
-    },
+    insert: (handler) => _evtTarget.addEventListener("insert", handler),
   };
 });

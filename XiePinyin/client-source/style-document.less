@@ -82,23 +82,12 @@ input {
 }
 
 .composer {
-  position: absolute; width: 300px; height: auto;
+  position: absolute; max-width: 302px; height: auto;
   border: 1px solid @borderColor; background-color: @activeBgColor;
   display: none; &.visible { display: block; }
   top: 75px; left: 137px;
-  .inputarea {
-    width: 100%; position: relative; float: left;
-    padding: 5px;
-  }
-  input#composer {
-    display: block; width: 100%; background-color: white; border: 1px solid @borderColor;
-    padding: 2px 5px;
-  }
-  input#composerHidden {
-    display: block; width: 0; height: 0; position: absolute; top: 0; left: 0; padding: 0; border: 0;
-  }
   .suggestions {
-    width: 100%; min-height: 40px; padding: 0 5px 5px 5px;
+    width: auto; min-height: 40px; padding: 0;
     position: relative; float: left; cursor: default;
     max-height: 300px; overflow-y: auto;
     font-size: @fntSizeHanzi;
