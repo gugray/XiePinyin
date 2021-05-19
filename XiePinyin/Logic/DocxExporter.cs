@@ -11,6 +11,8 @@ namespace XiePinyin.Logic
 {
     internal class DocxExporter
     {
+        const int exportFileMaxAgeMinutes = 60;
+
         readonly string skDocument;
         readonly string skPara;
         readonly string skRubyWord;
@@ -46,9 +48,19 @@ namespace XiePinyin.Logic
 
         public static void Housekeep(string folder)
         {
-            // TO-DO: Have document juggler call this
-            // Delete old files
-            // Export file name
+            var now = DateTime.UtcNow;
+            DirectoryInfo di = new DirectoryInfo(folder);
+            var toDel = new List<FileInfo>();
+            foreach (var fi in di.GetFiles())
+            {
+                var age = now.Subtract(fi.LastAccessTimeUtc);
+                if (age.TotalMinutes > exportFileMaxAgeMinutes)
+                    toDel.Add(fi);
+            }
+            foreach (var fi in toDel)
+            {
+                fi.Delete();
+            }
         }
 
         public class CustomStaticDataSource : IStaticDataSource

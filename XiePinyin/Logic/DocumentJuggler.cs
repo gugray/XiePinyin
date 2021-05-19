@@ -65,6 +65,7 @@ namespace XiePinyin.Logic
 
         const int saveFunCycleMsec = 200;
         const int saveFunLoopSec = 2;
+        const int exportCleanupLoopSec = 600;
 
         readonly object lockObject = new object();
         readonly List<Session> sessions = new List<Session>();
@@ -95,14 +96,28 @@ namespace XiePinyin.Logic
         void housekeep()
         {
             DateTime lastRun = DateTime.UtcNow;
+            DateTime lastExportCleanup = DateTime.UtcNow;
             while (!shuttingDown)
             {
                 Thread.Sleep(saveFunCycleMsec);
                 var sinceLast = DateTime.UtcNow.Subtract(lastRun);
                 if (sinceLast.TotalSeconds < saveFunLoopSec) continue;
                 lastRun = DateTime.UtcNow;
-                housekeepDocuments();
-                housekeepSessions();
+                try
+                {
+                    housekeepDocuments();
+                    housekeepSessions();
+                    var sinceLastExportCleanup = DateTime.UtcNow.Subtract(lastExportCleanup);
+                    if (sinceLastExportCleanup.TotalSeconds > exportCleanupLoopSec)
+                    {
+                        lastExportCleanup = DateTime.UtcNow;
+                        DocxExporter.Housekeep(options.ExportsFolder);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Error in housekeeping thread");
+                }
             }
         }
 
@@ -173,7 +188,7 @@ namespace XiePinyin.Logic
         public string CreateDocument(string name)
         {
             string docId;
-            lock(lockObject)
+            lock (lockObject)
             {
                 while (true)
                 {
@@ -238,6 +253,17 @@ namespace XiePinyin.Logic
             var exporter = new DocxExporter(composer, text, exportFilePath);
             await exporter.Export();
             return exportFileName;
+        }
+
+        public string GetDocumentName(string docId)
+        {
+            lock (lockObject)
+            {
+                ensureDocLoaded(docId);
+                var doc = docs.Find(x => x.DocId == docId);
+                if (doc == null) return null;
+                return doc.Name;
+            }
         }
 
         public string RequestSession(string docId)

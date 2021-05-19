@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Mvc;
@@ -63,6 +64,16 @@ namespace XiePinyin.Site
         [Authorize(AuthenticationSchemes = "XieAuth")]
         public async Task<IActionResult> Download([FromQuery] string name)
         {
+            // Verify input, extract doc ID
+            string docId = null;
+            if (name.Length <= 32)
+            {
+                var re = new Regex(@"([a-zA-Z0-9]{7})\-[a-zA-Z0-9]{7}\.docx");
+                var m = re.Match(name);
+                if (m.Success) docId = m.Groups[1].Value;
+            }
+            if (docId == null) return StatusCode(400, "We don't serve files like that.");
+
             var filePath = Path.Combine(exportsFolder, name);
             
             if (!System.IO.File.Exists(filePath))
@@ -76,7 +87,9 @@ namespace XiePinyin.Site
             byte[] fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
 
             var res = new FileContentResult(fileBytes, contentType);
-            res.FileDownloadName = name;
+            res.FileDownloadName = docJuggler.GetDocumentName(docId);
+            if (res.FileDownloadName == null) res.FileDownloadName = docId;
+            res.FileDownloadName += ".docx";
 
             return res;
         }
