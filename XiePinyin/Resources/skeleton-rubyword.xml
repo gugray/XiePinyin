@@ -1,0 +1,30 @@
+<w:r>
+	<w:ruby>
+		<w:rubyPr>
+			<w:rubyAlign w:val="center"/>
+			<w:hps w:val="22"/>
+			<w:hpsRaise w:val="24"/>
+			<w:hpsBaseText w:val="16"/>
+			<w:lid w:val="zh-CN"/>
+		</w:rubyPr>
+		<w:rt>
+			<w:r>
+				<w:rPr>
+					<w:rFonts w:hint="eastAsia" w:eastAsia="Noto Sans SC" w:ascii="Noto Sans SC" w:hAnsi="Noto Sans SC"/>
+					<w:sz w:val="24"/>
+				</w:rPr>
+				<w:t><!-- HANZI --></w:t>
+			</w:r>
+		</w:rt>
+		<w:rubyBase>
+			<w:r>
+				<w:rPr>
+					<w:rFonts w:hint="eastAsia" w:eastAsia="Noto Sans SC" w:ascii="Noto Sans SC" w:hAnsi="Noto Sans SC"/>
+				</w:rPr>
+				<w:t>
+					<!-- PINYIN -->
+				</w:t>
+			</w:r>
+		</w:rubyBase>
+	</w:ruby>
+</w:r>

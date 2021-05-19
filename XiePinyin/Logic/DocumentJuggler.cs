@@ -73,14 +73,16 @@ namespace XiePinyin.Logic
         readonly Thread housekeepingThread;
         readonly Options options;
         readonly ILogger logger;
+        readonly Composer composer;
         bool shuttingDown = false;
 
         internal IBroadcaster Broadcaster;
 
-        public DocumentJuggler(Options options, ILogger logger)
+        public DocumentJuggler(Options options, ILogger logger, Composer composer)
         {
             this.options = options;
             this.logger = logger.ForContext("XieSource", "DocJuggler");
+            this.composer = composer;
             housekeepingThread = new Thread(housekeep);
             housekeepingThread.Start();
         }
@@ -233,7 +235,7 @@ namespace XiePinyin.Logic
             }
             var exportFileName = docId + "-" + ShortIdGenerator.Next() + ".docx";
             var exportFilePath = Path.Combine(options.ExportsFolder, exportFileName);
-            var exporter = new DocxExporter(text, exportFilePath);
+            var exporter = new DocxExporter(composer, text, exportFilePath);
             await exporter.Export();
             return exportFileName;
         }

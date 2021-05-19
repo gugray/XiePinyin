@@ -52,7 +52,8 @@ namespace XiePinyin
             // Configuration singleton
             services.AddSingleton<IConfiguration>(sp => { return config; });
             // Input conversion
-            services.AddSingleton(new Composer(config["sourcesFolder"]));
+            var composer = new Composer(config["sourcesFolder"]);
+            services.AddSingleton(composer);
 
             asm = new AuthSessionManager(config["secretsFile"], Log.Logger);
             var dopt = new DocumentJuggler.Options
@@ -60,7 +61,7 @@ namespace XiePinyin
                 DocsFolder = config["docsFolder"],
                 ExportsFolder = config["exportsFolder"],
             };
-            docJuggler = new DocumentJuggler(dopt, Log.Logger);
+            docJuggler = new DocumentJuggler(dopt, Log.Logger, composer);
             var connMgr = new ConnectionManager(docJuggler, Log.Logger);
             broadcaster = new Broadcaster(connMgr, Log.Logger);
             docJuggler.Broadcaster = broadcaster;

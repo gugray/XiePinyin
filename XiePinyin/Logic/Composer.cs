@@ -96,5 +96,32 @@ namespace XiePinyin.Logic
             }
             return res;
         }
+
+        public string PinyinNumsToSurf(string pyNums)
+        {
+            string pyNumsLo = pyNums.ToLowerInvariant();
+            var loSylls = pinyin.SplitSyllables(pyNumsLo);
+            var loSyllsPretty = new List<string>();
+            foreach (var ls in loSylls)
+            {
+                string pretty = pinyin.NumsToSurf(ls);
+                if (pretty == null) pretty = ls;
+                loSyllsPretty.Add(pretty);
+            }
+            var origSylls = getOrigSylls(pyNums, pyNumsLo, loSylls);
+            string res = "";
+            for (int i = 0; i < loSyllsPretty.Count; ++i)
+            {
+                string loSyllPretty = loSyllsPretty[i];
+                if (loSylls[i] == origSylls[i]) res += loSyllPretty;
+                else
+                {
+                    string casedPretty = char.ToUpperInvariant(loSyllPretty[0]).ToString();
+                    if (loSyllPretty.Length > 1) casedPretty += loSyllPretty.Substring(1);
+                    res += casedPretty;
+                }
+            }
+            return res;
+        }
     }
 }
