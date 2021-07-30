@@ -3,9 +3,9 @@ var $ = require("jquery");
 var pinyinMap = require("./pinyinmap");
 var enc = require("js-htmlencode").htmlEncode;
 
-const htmlEmptyPara = '<div class="para"></div>';
-const htmlEmptyWordBi = '<div class="word"><div lang="zh-CN" class="hanzi"></div><div class="pinyin"></div></div>';
-const htmlEmptyWordAlfa = '<div class="word alfa"><div class="hanzi"></div></div>';
+const kEmptyPara = '<div class="para">{words}</div>';
+const kEmptyWordBi = '<div class="word"><div lang="zh-CN" class="hanzi">{hanzi}</div><div class="pinyin">{pinyin}</div></div>';
+const kEmptyWordAlfa = '<div class="word alfa"><div class="hanzi">{hanzi}</div></div>';
 
 function chars2words(para) {
   // If needed again: punctuation
@@ -56,44 +56,48 @@ function chars2words(para) {
 
 function para2dom(para) {
 
-  var words = chars2words(para);
+  let words = chars2words(para);
 
-  var elm = $(htmlEmptyPara);
+  let wordsHtml = "";
 
   for (var i = 0; i < words.length; ++i) {
-    var word = words[i];
+    let word = words[i];
     // Biscriptal word
     if (word.chars[0].pinyin !== undefined) {
-      var elmWord = $(htmlEmptyWordBi);
-      elmWord.find("div.hanzi").append($("<span class='pad'>&#x200b;</span>"));
-      elmWord.find("div.pinyin").append($("<span class='pad'>&#x200b;</span>"));
+      let hanziHtml = "";
+      let pinyinHtml = "";
+      hanziHtml += "<span class='pad'>&#x200b;</span>";
+      pinyinHtml += "<span class='pad'>&#x200b;</span>";
       for (var j = 0; j < word.chars.length; ++j) {
-        elmWord.find("div.hanzi").append($("<span class='x'>" + enc(word.chars[j].hanzi) + "</span>"));
+        hanziHtml += "<span class='x'>" + enc(word.chars[j].hanzi) + "</span>";
         var pyNums = word.chars[j].pinyin;
         var pyDisplay = pinyinMap.toDisplay(pyNums);
         if (j != 0 && pyNums != word.chars[j].hanzi && pinyinMap.isVowelFirst(pyNums)) pyDisplay = "'" + pyDisplay;
-        elmWord.find("div.pinyin").append($("<span class='x'>" + enc(pyDisplay) + "</span>"));
+        pinyinHtml += "<span class='x'>" + enc(pyDisplay) + "</span>";
       }
-      elmWord.find("div.hanzi").append($("<span class='pad'>&#x200b;</span>"));
-      elmWord.find("div.pinyin").append($("<span class='pad'>&#x200b;</span>"));
-      elm.append(elmWord);
+      hanziHtml += "<span class='pad'>&#x200b;</span>";
+      pinyinHtml += "<span class='pad'>&#x200b;</span>";
+      let wordHtml = kEmptyWordBi.replace("{hanzi}", hanziHtml).replace("{pinyin}", pinyinHtml);
+      wordsHtml += wordHtml;
     }
     // Alfa word
     else {
-      var elmWord = $(htmlEmptyWordAlfa);
+      let hanziHtml = "";
       for (var j = 0; j < word.chars.length; ++j) {
-        elmWord.find("div.hanzi").append($("<span class='x'>" + enc(word.chars[j].hanzi) + "</span>"));
+        hanziHtml += "<span class='x'>" + enc(word.chars[j].hanzi) + "</span>";
       }
-      elm.append(elmWord);
+      let wordHtml = kEmptyWordAlfa.replace("{hanzi}", hanziHtml);
+      wordsHtml += wordHtml;
     }
   }
 
-  var elmLastWord = $(htmlEmptyWordBi);
-  elmLastWord.find("div.hanzi").append($("<span class='x fin'>&#x200b;</span>"));
-  elmLastWord.find("div.pinyin").append($("<span class='x fin'>&#x200b;</span>"));
-  elm.append(elmLastWord);
+  let lastWordHtml = kEmptyWordBi;
+  lastWordHtml = lastWordHtml.replace("{hanzi}", "<span class='x fin'>&#x200b;</span>");
+  lastWordHtml = lastWordHtml.replace("{pinyin}", "<span class='x fin'>&#x200b;</span>");
+  wordsHtml += lastWordHtml;
 
-  return elm;
+  let html = kEmptyPara.replace("{words}", wordsHtml);
+  return $(html);
 }
 
 function text2dom(text) {
