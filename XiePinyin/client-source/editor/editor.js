@@ -3,6 +3,7 @@ var $ = require("jquery");
 var converter = require("./converter");
 var composer = require("./composer");
 const { compose } = require("./changeset");
+const { ParaIndex, ParaIndexItem } = require("./paraindex");
 
 const htmlHanziCaret = '<div class="caret hanzi hidden">&nbsp;</div>';
 const htmlPinyinCaret = '<div class="caret pinyin hidden">&nbsp;</div>';
@@ -23,7 +24,7 @@ module.exports = (function (elmHost, shortcutHandler) {
   var _elmPinyinCaret = $(htmlPinyinCaret);
   var _elmHiddenInput = $(htmlHiddenInput);
   var _elmComposer = $(htmlComposer);
-  var _elmParas = converter.text2dom([]);
+  var _paraIndex = converter.text2dom([]);
   var _sel = {
     start: 0,
     end: 0,
@@ -99,9 +100,9 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function setContent(content, newSel) {
-    _elmParas = converter.text2dom(content);
+    _paraIndex = converter.text2dom(content);
     _elmHost.find(".para").remove();
-    for (let i = 0; i < _elmParas.length; ++i) _elmHost.append(_elmParas[i]);
+    for (let i = 0; i < _paraIndex.paras.length; ++i) _elmHost.append(_paraIndex.paras[i].elm);
     if (!newSel) setSel(0, 0, false);
     else setSel(newSel.start, newSel.end, newSel.caretAtStart);
   }
@@ -238,7 +239,12 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function getContent() {
-    return converter.dom2text(_elmParas);
+    let text = "";
+    for (let i = 0; i < _paraIndex.paras.length; ++i) {
+      if (i > 0) text.push({ hanzi: "\n", pinyin: "\n" });
+      text = text.concat(_paraIndex.paras[i].text);
+    }
+    return text;
   }
 
   function getSel() {
@@ -269,15 +275,17 @@ module.exports = (function (elmHost, shortcutHandler) {
       }
     });
 
-    // Get old content from DOM
-    var oldCont = converter.dom2text(_elmParas);
+    // Selection in DOM paragraphs
+    const domRange = _paraIndex.text2DomRange(_sel.start, _sel.end);
+    const sPara = _paraIndex.paras[domRange.start.paraIx];
+    const ePara = _paraIndex.paras[domRange.end.paraIx];
 
     // If new text is a single character, extract a composition prompt from the text before the caret
     const prompt = [];
     if (chars.length == 0 || (chars.length == 1 && !chars[0].pinyin && !/\s/.test(chars[0].hanzi))) {
       if (chars.length == 1) prompt.unshift(chars[0]);
-      for (let i = _sel.start - 1; i >= 0; --i) {
-        const char = oldCont[i];
+      for (let i = domRange.start.charIx - 1; i >= 0; --i) {
+        const char = sPara.text[i];
         if (!char) continue;
         if (char.pinyin && char.pinyin != "") break;
         if (/\p{Punctuation}/u.test(char.hanzi)) break;
@@ -286,14 +294,60 @@ module.exports = (function (elmHost, shortcutHandler) {
       }
     }
 
-    // Assemble new content in one
-    var newCont = [];
-    for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
-    for (var i = 0; i < chars.length; ++i) newCont.push(chars[i]);
-    for (var i = _sel.end; i < oldCont.length; ++i) newCont.push(oldCont[i]);
-    _elmParas = converter.text2dom(newCont);
-    _elmHost.find(".para").remove();
-    for (let i = 0; i < _elmParas.length; ++i) _elmHost.append(_elmParas[i]);
+    // Replace paragraphs that are affected by current selection; keep paras before and after
+    const newParaIndex = new ParaIndex();
+
+    // Keep preceding paras
+    let startPos = 0;
+    for (let i = 0; i < domRange.start.paraIx; ++i) {
+      newParaIndex.paras.push(_paraIndex.paras[i]);
+      startPos += _paraIndex.paras[i].text.length + 1;
+    }
+
+    // Assemble new paras in the middle, keeping part of old text before and after selection
+    let currPara = new ParaIndexItem(startPos, sPara.text.slice(0, domRange.start.charIx));
+    for (let i = 0; i < chars.length; ++i) {
+      if (chars[i].hanzi == "\n") {
+        newParaIndex.paras.push(currPara);
+        startPos += currPara.text.length + 1;
+        currPara = new ParaIndexItem(startPos, []);
+      }
+      else currPara.text.push(chars[i]);
+    }
+    currPara.text = currPara.text.concat(ePara.text.slice(domRange.end.charIx));
+    newParaIndex.paras.push(currPara);
+    startPos += currPara.text.length + 1;
+
+    // Keep remaining paras; adjust start positions
+    for (let i = domRange.end.paraIx + 1; i < _paraIndex.paras.length; ++i) {
+      _paraIndex.paras[i].startPos = startPos;
+      startPos += _paraIndex.paras[i].text.length + 1;
+      newParaIndex.paras.push(_paraIndex.paras[i]);
+    }
+
+    // Create new DOM nodes, insert before sPara node
+    for (const para of newParaIndex.paras) {
+      if (para.elm) continue;
+      para.elm = converter.para2dom(para);
+      sPara.elm.before(para.elm);
+    }
+    // Remove replaced paragraphs from DOM
+    for (let i = domRange.start.paraIx; i <= domRange.end.paraIx; ++i)
+      _paraIndex.paras[i].elm.remove();
+
+    // We have our new authoritative paragraph index!
+    _paraIndex = newParaIndex;
+
+    //// Assemble new content in one
+    //var newCont = [];
+    //for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
+    //for (var i = 0; i < chars.length; ++i) newCont.push(chars[i]);
+    //for (var i = _sel.end; i < oldCont.length; ++i) newCont.push(oldCont[i]);
+    //_paraIndex = converter.text2dom(newCont);
+    //_elmHost.find(".para").remove();
+    //for (const para of _paraIndex.paras) _elmHost.append(para.elm);
+
+
     setSel(_sel.start + chars.length, _sel.start + chars.length, false);
     if (_elmHiddenInput.is(":focus")) setCaretBlinkie(true, true);
 
@@ -478,41 +532,44 @@ module.exports = (function (elmHost, shortcutHandler) {
     _sel.start = start;
     _sel.end = end;
     _sel.caretAtStart = caretAtStart;
-    var hanziCaretX = 0, hanziCaretY = 0, pinyinCaretX = 0, pinyinCaretY = 0;
-    var ix = 0;
-    var wordCount = _elmHost.find(".word").length;
-    for (var i = 0; i < wordCount; ++i) {
-      var elmWord = _elmHost.find(".word").eq(i);
-      var spanCount = elmWord.find(".hanzi>span").length;
-      for (var j = 0; j < spanCount; ++j) {
-        var elmHanzi = elmWord.find(".hanzi>span").eq(j);
-        var elmPinyin = elmWord.find(".pinyin>span").eq(j);
-        if (ix < _sel.start || ix >= _sel.end) {
-          elmHanzi.removeClass("sel");
-          elmPinyin.removeClass("sel");
-        }
-        else {
-          elmHanzi.addClass("sel");
-          elmPinyin.addClass("sel");
-        }
-        if (ix == _sel.start && (_sel.caretAtStart || _sel.end == _sel.start) || ix == _sel.end - 1 && !_sel.caretAtStart) {
-          hanziCaretY = elmHanzi.offset().top - _elmHost.offset().top;
-          if (elmPinyin.length != 0) pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
-          else pinyinCaretY = hanziCaretY + _elmHanziCaret.height();
-          if (_sel.caretAtStart || _sel.end == _sel.start) {
-            hanziCaretX = elmHanzi.offset().left - _elmHost.offset().left - 2;
-            if (elmPinyin.length != 0) pinyinCaretX = elmPinyin.offset().left - _elmHost.offset().left - 2;
-            else pinyinCaretX = hanziCaretX;
-          }
-          else {
-            hanziCaretX = elmHanzi.offset().left + elmHanzi.width() - _elmHost.offset().left - 2;
-            if (elmPinyin.length != 0) pinyinCaretX = elmPinyin.offset().left + elmPinyin.width() - _elmHost.offset().left - 2;
-            else pinyinCaretX = hanziCaretX;
-          }
-        }
-        if (elmHanzi.hasClass("x")) ++ix;
+    let hanziCaretX = 0, hanziCaretY = 0, pinyinCaretX = 0, pinyinCaretY = 0;
+
+    const domRange = _paraIndex.text2DomRange(_sel.start, _sel.end);
+    const sPara = _paraIndex.paras[domRange.start.paraIx];
+    const ePara = _paraIndex.paras[domRange.end.paraIx];
+
+    _elmHost.find("span").removeClass("sel");
+    const sEndIx = domRange.start.paraIx == domRange.end.paraIx ? domRange.end.charIx : sPara.text.length + 1;
+    for (let ci = domRange.start.charIx; ci < sEndIx; ++ci) {
+      sPara.elm.find("span.ix" + ci.toString()).addClass("sel");
+    }
+    for (let pi = domRange.start.paraIx + 1; pi < domRange.end.paraIx; ++pi) {
+      _paraIndex.paras[pi].elm.find("span").addClass("sel");
+    }
+    if (domRange.end.paraIx > domRange.start.paraIx) {
+      for (let ci = 0; ci < domRange.end.charIx; ++ci) {
+        ePara.elm.find("span.ix" + ci.toString()).addClass("sel");
       }
     }
+
+    let elmStartHanzi = sPara.elm.find(".hanzi>span.ix" + domRange.start.charIx.toString());
+    let elmEndHanzi = elmStartHanzi;
+    if (_sel.start != _sel.end)
+      elmEndHanzi = ePara.elm.find(".hanzi>span.ix" + domRange.end.charIx.toString());
+    let elmStartPinyin = sPara.elm.find(".pinyin>span.ix" + domRange.start.charIx.toString());
+    let elmEndPinyin = elmStartPinyin;
+    if (_sel.start != _sel.end)
+      elmEndPinyin = ePara.elm.find(".pinyin>span.ix" + domRange.end.charIx.toString());
+
+    var elmHanzi = caretAtStart ? elmStartHanzi : elmEndHanzi;
+    var elmPinyin = caretAtStart ? elmStartPinyin : elmEndPinyin;
+    hanziCaretY = elmHanzi.offset().top - _elmHost.offset().top;
+    if (elmPinyin.length != 0) pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
+    else pinyinCaretY = hanziCaretY + _elmHanziCaret.height();
+    hanziCaretX = elmHanzi.offset().left - _elmHost.offset().left - 2;
+    if (elmPinyin.length != 0) pinyinCaretX = elmPinyin.offset().left - _elmHost.offset().left - 2;
+    else pinyinCaretX = hanziCaretX;
+
     _elmHanziCaret.css("left", hanziCaretX + "px");
     _elmHanziCaret.css("top", hanziCaretY + "px");
     _elmPinyinCaret.css("left", pinyinCaretX + "px");
@@ -540,52 +597,43 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function setPeerSelections(pss) {
+
     _elmHost.find(".caret.peer").remove();
     let elmHanziCarets = [], elmPinyinCarets = [];
+
     for (let i = 0; i < pss.length; ++i) {
+
       let hc = $(htmlHanziCaret);
       hc.addClass("peer");
       hc.addClass("peer" + (i % 5 + 1));
       hc.removeClass("hidden");
       elmHanziCarets.push(hc);
+
       let pc = $(htmlPinyinCaret);
       pc.addClass("peer");
       pc.addClass("peer" + (i % 5 + 1));
       pc.removeClass("hidden");
       elmPinyinCarets.push(pc);
-      pss[i].hanziCaretX = 0;
-      pss[i].hanziCaretY = 0;
-      pss[i].pinyinCaretX = 0;
-      pss[i].pinyinCaretY = 0;
-      pss[i].ix = pss[i].caretAtStart ? pss[i].start : pss[i].end;
-    }
 
-    var ix = 0;
-    var wordCount = _elmHost.find(".word").length;
-    for (var i = 0; i < wordCount; ++i) {
-      var elmWord = _elmHost.find(".word").eq(i);
-      var spanCount = elmWord.find(".hanzi>span").length;
-      for (var j = 0; j < spanCount; ++j) {
-        var elmHanzi = elmWord.find(".hanzi>span").eq(j);
-        var elmPinyin = elmWord.find(".pinyin>span").eq(j);
-        for (let k = 0; k < pss.length; ++k) {
-          if (ix == pss[k].ix) {
-            pss[k].hanziCaretY = elmHanzi.offset().top - _elmHost.offset().top;
-            if (elmPinyin.length != 0) pss[k].pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
-            else pss[k].pinyinCaretY = pss[k].hanziCaretY + _elmHanziCaret.height();
-            pss[k].hanziCaretX = elmHanzi.offset().left - _elmHost.offset().left - 2;
-            if (elmPinyin.length != 0) pss[k].pinyinCaretX = elmPinyin.offset().left - _elmHost.offset().left - 2;
-            else pss[k].pinyinCaretX = pss[k].hanziCaretX;
-          }
-        }
-        if (elmHanzi.hasClass("x")) ++ix;
-      }
-    }
-    for (let i = 0; i < pss.length; ++i) {
+      pss[i].ix = pss[i].caretAtStart ? pss[i].start : pss[i].end;
+
+      const domRange = _paraIndex.text2DomRange(pss[i].ix, pss[i].ix);
+      const para = _paraIndex.paras[domRange.start.paraIx];
+
+      let elmHanzi = para.elm.find(".hanzi>span.ix" + domRange.start.charIx.toString());
+      let elmPinyin = para.elm.find(".pinyin>span.ix" + domRange.start.charIx.toString());
+      pss[i].hanziCaretY = elmHanzi.offset().top - _elmHost.offset().top;
+      if (elmPinyin.length != 0) pss[i].pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
+      else pss[i].pinyinCaretY = pss[i].hanziCaretY + _elmHanziCaret.height();
+      pss[i].hanziCaretX = elmHanzi.offset().left - _elmHost.offset().left - 2;
+      if (elmPinyin.length != 0) pss[i].pinyinCaretX = elmPinyin.offset().left - _elmHost.offset().left - 2;
+      else pss[i].pinyinCaretX = pss[i].hanziCaretX;
+
       elmHanziCarets[i].css("left", pss[i].hanziCaretX + "px");
       elmHanziCarets[i].css("top", pss[i].hanziCaretY + "px");
       elmPinyinCarets[i].css("left", pss[i].pinyinCaretX + "px");
       elmPinyinCarets[i].css("top", pss[i].pinyinCaretY + "px");
+
       _elmHost.prepend(elmHanziCarets[i]);
       _elmHost.prepend(elmPinyinCarets[i]);
     }

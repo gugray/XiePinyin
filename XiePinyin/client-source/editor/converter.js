@@ -2,6 +2,7 @@
 var $ = require("jquery");
 var pinyinMap = require("./pinyinmap");
 var enc = require("js-htmlencode").htmlEncode;
+var { ParaIndex, ParaIndexItem } = require("./paraindex");
 
 const kEmptyPara = '<div class="para">{words}</div>';
 const kEmptyWordBi = '<div class="word"><div lang="zh-CN" class="hanzi">{hanzi}</div><div class="pinyin">{pinyin}</div></div>';
@@ -11,13 +12,14 @@ function chars2words(para) {
   // If needed again: punctuation
   // .match(/\\p{IsPunctuation}/g);
 
-  if (para.length == 0) return [];
+  const chars = para.text;
+  if (chars.length == 0) return [];
   var res = [];
 
-  var inAlfa = para[0].pinyin === undefined;
+  var inAlfa = chars[0].pinyin === undefined;
   var ix = 0;
   var word = { chars: [] };
-  while (ix < para.length) {
+  while (ix < chars.length) {
     eatRange();
     if (word.chars.length > 0) res.push(word);
     word = { chars: [] };
@@ -26,9 +28,9 @@ function chars2words(para) {
 
   function eatRange() {
     // First, eat up leading WS
-    while (ix < para.length && para[ix].hanzi.match(/^\s+$/)) {
-      if (inAlfa && para[ix].pinyin !== undefined || !inAlfa && para[ix].pinyin === undefined) return;
-      word.chars.push(para[ix]);
+    while (ix < chars.length && chars[ix].hanzi.match(/^\s+$/)) {
+      if (inAlfa && chars[ix].pinyin !== undefined || !inAlfa && chars[ix].pinyin === undefined) return;
+      word.chars.push(chars[ix]);
       ++ix;
     }
     if (word.chars.length > 0) {
@@ -36,15 +38,15 @@ function chars2words(para) {
       word = { chars: [] };
     }
     // Eat up words: non-WS followed by WS
-    while (ix < para.length) {
-      while (ix < para.length && !para[ix].hanzi.match(/^\s+$/)) {
-        if (inAlfa && para[ix].pinyin !== undefined || !inAlfa && para[ix].pinyin === undefined) return;
-        word.chars.push(para[ix]);
+    while (ix < chars.length) {
+      while (ix < chars.length && !chars[ix].hanzi.match(/^\s+$/)) {
+        if (inAlfa && chars[ix].pinyin !== undefined || !inAlfa && chars[ix].pinyin === undefined) return;
+        word.chars.push(chars[ix]);
         ++ix;
       }
-      while (ix < para.length && para[ix].hanzi.match(/^\s+$/)) {
-        if (inAlfa && para[ix].pinyin !== undefined || !inAlfa && para[ix].pinyin === undefined) return;
-        word.chars.push(para[ix]);
+      while (ix < chars.length && chars[ix].hanzi.match(/^\s+$/)) {
+        if (inAlfa && chars[ix].pinyin !== undefined || !inAlfa && chars[ix].pinyin === undefined) return;
+        word.chars.push(chars[ix]);
         ++ix;
       }
       res.push(word);
@@ -57,8 +59,8 @@ function chars2words(para) {
 function para2dom(para) {
 
   let words = chars2words(para);
-
   let wordsHtml = "";
+  let charIx = 0;
 
   for (var i = 0; i < words.length; ++i) {
     let word = words[i];
@@ -66,25 +68,25 @@ function para2dom(para) {
     if (word.chars[0].pinyin !== undefined) {
       let hanziHtml = "";
       let pinyinHtml = "";
-      hanziHtml += "<span class='pad'>&#x200b;</span>";
-      pinyinHtml += "<span class='pad'>&#x200b;</span>";
-      for (var j = 0; j < word.chars.length; ++j) {
-        hanziHtml += "<span class='x'>" + enc(word.chars[j].hanzi) + "</span>";
+      hanziHtml += makeSpanPad(charIx);
+      pinyinHtml += makeSpanPad(charIx);
+      for (var j = 0; j < word.chars.length; ++j, ++charIx) {
+        hanziHtml += makeSpanX(word.chars[j].hanzi, charIx, false);
         var pyNums = word.chars[j].pinyin;
         var pyDisplay = pinyinMap.toDisplay(pyNums);
         if (j != 0 && pyNums != word.chars[j].hanzi && pinyinMap.isVowelFirst(pyNums)) pyDisplay = "'" + pyDisplay;
-        pinyinHtml += "<span class='x'>" + enc(pyDisplay) + "</span>";
+        pinyinHtml += makeSpanX(pyDisplay, charIx, false);
       }
-      hanziHtml += "<span class='pad'>&#x200b;</span>";
-      pinyinHtml += "<span class='pad'>&#x200b;</span>";
+      hanziHtml += makeSpanPad(charIx);
+      pinyinHtml += makeSpanPad(charIx);
       let wordHtml = kEmptyWordBi.replace("{hanzi}", hanziHtml).replace("{pinyin}", pinyinHtml);
       wordsHtml += wordHtml;
     }
     // Alfa word
     else {
       let hanziHtml = "";
-      for (var j = 0; j < word.chars.length; ++j) {
-        hanziHtml += "<span class='x'>" + enc(word.chars[j].hanzi) + "</span>";
+      for (var j = 0; j < word.chars.length; ++j, ++charIx) {
+        hanziHtml += makeSpanX(word.chars[j].hanzi, charIx, false);
       }
       let wordHtml = kEmptyWordAlfa.replace("{hanzi}", hanziHtml);
       wordsHtml += wordHtml;
@@ -92,81 +94,55 @@ function para2dom(para) {
   }
 
   let lastWordHtml = kEmptyWordBi;
-  lastWordHtml = lastWordHtml.replace("{hanzi}", "<span class='x fin'>&#x200b;</span>");
-  lastWordHtml = lastWordHtml.replace("{pinyin}", "<span class='x fin'>&#x200b;</span>");
+  lastWordHtml = lastWordHtml.replace("{hanzi}", makeSpanX(null, charIx, true));
+  lastWordHtml = lastWordHtml.replace("{pinyin}", makeSpanX(null, charIx, true));
   wordsHtml += lastWordHtml;
 
   let html = kEmptyPara.replace("{words}", wordsHtml);
   return $(html);
+
+  function makeSpanX(text, charIx, isFin) {
+    const cls = isFin ? "x fin" : "x";
+    const txt = isFin ? "&#x200b;" : enc(text);
+    const res =
+      "<span class='" + cls + " ix" + charIx.toString() + "'>" +
+      txt +
+      "</span>";
+    return res;
+  }
+
+  function makeSpanPad(charIx) {
+    return "<span class='pad ix" + charIx.toString() + "'>&#x200b;</span>";
+  }
 }
 
 function text2dom(text) {
-  let paras = [];
+  const index = new ParaIndex();
   let para = [];
+
+  let startPos = 0;
   for (let i = 0; i < text.length; ++i) {
     if (text[i].hanzi == "\n") {
-      paras.push(para);
+      index.paras.push(new ParaIndexItem(startPos, para));
+      startPos = i + 1;
       para = [];
     }
     else para.push(text[i]);
   }
-  paras.push(para);
-  let elms = [];
-  for (let i = 0; i < paras.length; ++i) {
-    elms.push(para2dom(paras[i]));
+  index.paras.push(new ParaIndexItem(startPos, para));
+
+  for (let i = 0, startPos = 0; i < index.paras.length; ++i) {
+    if (startPos != index.paras[i].startPos) throw "startPos mismatch";
+    index.paras[i].elm = para2dom(index.paras[i]);
+    startPos += index.paras[i].text.length + 1;
   }
-  return elms;
+  return index;
 }
-
-function dom2para(elmPara) {
-
-  var res = [];
-
-  var wdCount = elmPara.find("div.word").length;
-  for (var i = 0; i < wdCount; ++i) {
-    var elmWord = elmPara.find("div.word").eq(i);
-    // Biscriptal word
-    if (!elmWord.hasClass("alfa")) {
-      for (var j = 0; j < elmWord.find("div.hanzi span.x").length; ++j) {
-        var elmHanzi = elmWord.find("div.hanzi span.x").eq(j);
-        var elmPinyin = elmWord.find("div.pinyin span.x").eq(j);
-        if (elmHanzi.hasClass("fin")) continue;
-        res.push({
-          hanzi: elmHanzi.text(),
-          pinyin: elmPinyin.text(),
-        });
-      }
-    }
-    // Alfa word
-    else {
-      for (var j = 0; j < elmWord.find("div.hanzi span.x").length; ++j) {
-        var elmHanzi = elmWord.find("div.hanzi span.x").eq(j);
-        if (elmHanzi.hasClass("fin")) continue;
-        res.push({
-          hanzi: elmHanzi.text(),
-        });
-      }
-    }
-  }
-
-  return res;
-}
-
-function dom2text(elmParas) {
-  let text = [];
-  for (let i = 0; i < elmParas.length; ++i) {
-    let paraText = dom2para(elmParas[i]);
-    if (i > 0) text.push({ hanzi: "\n", pinyin: "\n" });
-    text.push(...paraText);
-  }
-  return text;
-}
-
 
 module.exports = (function () {
 
   return {
+    para2dom,
     text2dom,
-    dom2text,
   }
 })();
