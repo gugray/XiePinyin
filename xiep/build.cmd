@@ -1,1 +1,2 @@
-go build -o app\
+gulp
+go build -o deploy\
