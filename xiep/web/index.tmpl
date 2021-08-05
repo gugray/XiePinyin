@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>写拼音 Biscriptal Editor</title>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href='{{ "/bundle.css" | appendTimestamp }}'>
+</head>
+<body>
+<div id="svelteApp"></div>
+<div id="app"></div>
+<div id="version">{{ .Ver }}</div>
+
+<script src='{{ "/bundle-svelte.js" | appendTimestamp }}'></script>
+<script src='{{ "/bundle.js" | appendTimestamp }}'></script>
+</body>
+</html>

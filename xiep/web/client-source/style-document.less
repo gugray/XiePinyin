@@ -1,0 +1,111 @@
+﻿@import "style-defines.less";
+
+
+.noselect {
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+}
+
+input {
+  // Fuck browsers
+  outline: none; border-radius: 0; border: 0; padding: 0;
+  -webkit-appearance: none; -webkit-border-radius: 0px; background-color: inherit;
+  &:focus { outline: none; -webkit-box-shadow: none; box-shadow: none; }
+  font-family: @fntBaseFamily; font-size: @fntSizePinyin; color: @textColor;
+}
+#hiddenInput { position: absolute; top: 0; left: 0; width: 0; height: 0; }
+
+.document {
+  position: absolute; min-height: 100%; width: 100%; padding-top: 78px;
+  background-color: #fafafa;
+  .header {
+    position: fixed; top: 0; left: 0; width: 100%; z-index: 1;
+    height: 78px; border-bottom: 1px solid #ccc; background-color: white;
+  }
+  &.error {
+    article { top: 30%; margin-top: -70px; }
+  }
+  .loginPara { width: 420px; }
+}
+
+.page {
+  position: relative; width: 800px; margin: 20px auto 24px auto; padding: 12px; min-height: 500px;
+  background-color: white; box-shadow: 0 0 0 1px #d1d1d152, 0 0 10px 0 #cccccc90;
+  .caret {
+    position: absolute; width: 2px; background-color: @cursorColor;
+    &.hidden { visibility: hidden; }
+    &.frozen, &.hidden.frozen { display: block; background-color: @lightCursorColor; }
+    &.hanzi { height: @fntSizeHanzi * 1.5; }
+    &.pinyin { height: @fntSizePinyin * 1.5; }
+    &.peer1 { background-color: @clr1; }
+    &.peer2 { background-color: @clr2; }
+    &.peer3 { background-color: @clr3; }
+    &.peer4 { background-color: @clr4; }
+    &.peer5 { background-color: @clr5; }
+  }
+}
+
+.para {
+  display: inline-flex; flex-wrap: wrap; width: 100%;
+  cursor: text;
+  .noselect();
+  .word {
+    flex-grow: 0;
+    display: flex; flex-direction: column;
+    margin: 0 0 16px 0;
+    div {
+      display: inline-flex; flex-grow: 0;
+      white-space: pre;
+      span {
+        display: inline-block; height: 100%; box-sizing: border-box;
+        &.sel { background-color: @selectionColor; }
+        &.pad { flex-grow: 1; }
+      }
+    }
+    div.hanzi {
+      font-family: @fntBaseFamilyHanzi; font-size: @fntSizeHanzi; text-align: center;
+      height: @fntSizeHanzi * 1.5;
+    }
+    &.alfa div.hanzi {
+      font-size: @fntSizePinyin; height: (@fntSizeHanzi + @fntSizePinyin) * 1.5;
+      span { padding-top: @fntSizeHanzi * 1.5; }
+    }
+    div.pinyin {
+      height: @fntSizePinyin * 1.5; text-align: left;
+    }
+  }
+  &.diag { background-color: aliceblue; }
+  .diag { background-color: aliceblue; }
+}
+
+.composer {
+  position: absolute; max-width: 302px; height: auto;
+  border: 1px solid @borderColor; background-color: @activeBgColor;
+  display: none; &.visible { display: block; }
+  top: 75px; left: 137px;
+  .suggestions {
+    width: auto; min-height: 40px; padding: 0;
+    position: relative; float: left; cursor: default;
+    max-height: 300px; overflow-y: auto;
+    font-size: @fntSizeHanzi;
+    span {
+      display: inline-block; padding: 2px 5px 4px 5px;
+      border: 2px solid transparent;
+      &.sel, &.sel:hover { background-color: @selectionColor; }
+      &.focus { border: 2px dotted @borderColor; }
+      &:hover { background-color: @hoverBgColor; }
+    }
+    &.info { 
+      font-size: @fntSizePinyin * 0.9; font-style: italic; 
+      span:hover { background-color: unset; }
+    }
+    &.error { color: #c3461d; }
+    &.loading { 
+      color: @lightCursorColor;
+      span.focus { border: 2px solid transparent; }
+    }
+  }
+}
