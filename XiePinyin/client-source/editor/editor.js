@@ -239,7 +239,7 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function getContent() {
-    let text = "";
+    let text = [];
     for (let i = 0; i < _paraIndex.paras.length; ++i) {
       if (i > 0) text.push({ hanzi: "\n", pinyin: "\n" });
       text = text.concat(_paraIndex.paras[i].text);
