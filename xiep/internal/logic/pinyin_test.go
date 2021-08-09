@@ -49,5 +49,33 @@ func TestPinyinSurfNum(t *testing.T) {
 	}
 }
 
+func checkSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, x := range(a) {
+		if b[i] != x {
+			return  false
+		}
+	}
+	return true
+}
+
 func TestPinyinSplitBySyllables(t *testing.T) {
+	type Itm struct {
+		word string
+		sylls []string
+	}
+	vals := []Itm {
+		{word: "", sylls: []string{}},
+		{word: "xyz", sylls: []string{"xyz"}},
+		{word: "da2an4", sylls: []string{"da2", "an4"}},
+		{word: "di4-yi1", sylls: []string{"di4", "-", "yi1"}},
+	}
+	for _, val := range(vals) {
+		res := Pinyin.SplitSyllables(val.word)
+		if !checkSlicesEqual(res, val.sylls) {
+			t.Errorf("wrong split for %v: got %v, expected %v", val.word, res, val.sylls)
+		}
+	}
 }
