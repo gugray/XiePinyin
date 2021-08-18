@@ -11,12 +11,6 @@ import (
 	"unicode/utf8"
 )
 
-type Pinyiner interface {
-	NumToSurf(num string) string
-	SurfToNum(surf string) string
-	SplitSyllables(text string) []string
-}
-
 //go:embed pinyin.txt
 var efs embed.FS
 
@@ -25,16 +19,16 @@ type syllable struct {
 	vowelStart bool
 }
 
-type pinyin struct {
+type PY struct {
 	sylls []syllable
 	surfToNum map[string]string
 	numToSurf map[string]string
 }
 
-var Pinyin Pinyiner = loadPinyin()
+var Pinyin *PY = loadPinyin()
 
-func loadPinyin() *pinyin {
-	var p pinyin
+func loadPinyin() *PY {
+	var p PY
 	p.init()
 	f, err := efs.Open("pinyin.txt")
 	if err != nil {
@@ -59,12 +53,12 @@ func loadPinyin() *pinyin {
 	return &p
 }
 
-func (p *pinyin) init() {
+func (p *PY) init() {
 	p.numToSurf = make(map[string]string)
 	p.surfToNum = make(map[string]string)
 }
 
-func (p *pinyin) parseInputLine(line string) {
+func (p *PY) parseInputLine(line string) {
 	if len(line) == 0 {
 		return
 	}
@@ -83,15 +77,15 @@ func (p *pinyin) parseInputLine(line string) {
 	p.numToSurf[parts[0] + "4"] = parts[5];
 }
 
-func (p *pinyin) NumToSurf(num string) string {
+func (p *PY) NumToSurf(num string) string {
 	return p.numToSurf[num]
 }
 
-func (p *pinyin) SurfToNum(surf string) string {
+func (p *PY) SurfToNum(surf string) string {
 	return p.surfToNum[surf]
 }
 
-func (p* pinyin) matchSylls(str string, pos int, ends *[]int) bool {
+func (p* PY) matchSylls(str string, pos int, ends *[]int) bool {
 	// Reach end of string: good
 	if pos == len(str) {
 		return true
@@ -143,7 +137,7 @@ func (p* pinyin) matchSylls(str string, pos int, ends *[]int) bool {
 	return false
 }
 
-func (p *pinyin) SplitSyllables(text string) (res []string) {
+func (p *PY) SplitSyllables(text string) (res []string) {
 	res = []string{}
 	// Sanity check
 	if len(text) == 0 {

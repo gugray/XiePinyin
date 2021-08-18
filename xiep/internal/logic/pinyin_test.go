@@ -10,7 +10,7 @@ func TestPinyinParseInputLine(t *testing.T) {
 		"ba\tba\tbā\tbá\tbǎ\tbà",
 		"bang\tbang\tbāng\tbáng\tbǎng\tbàng",
 	}
-	var p pinyin
+	var p PY
 	p.init()
 	p.parseInputLine(lines[0])
 	p.parseInputLine(lines[1])
