@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"unicode"
 )
 
 type charReading struct {
@@ -58,7 +59,6 @@ func loadCharReadings(fnJson string) []charReading {
 }
 
 func (cp *CP) Resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, readings [][]string) {
-	pinyinSylls = make([]string, 0)
 	readings = make([][]string, 0)
 	charReadings :=  cp.readingsTrad
 	if isSimp {
@@ -81,26 +81,48 @@ func (cp *CP) Resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, re
 		itm = append(itm, r.Hanzi)
 		readings = append(readings, itm)
 	}
+	pinyinSylls = getOrigSylls(pinyinInput, pinyinInputLo, loSylls)
 	return
 }
 
-func (cp *CP) getOrigSylls(orig string, lo string, loSylls []string) (origSylls []string) {
+func getOrigSylls(orig string, lo string, loSylls []string) (origSylls []string) {
 	origSylls = make([]string, 0, len(loSylls))
-
 	ix := 0
-	for i := 0; i < len(loSylls); i++ {
-		lo = lo[]
-		ix = strings.in
+	for _, loSyll := range(loSylls) {
+		ix += strings.Index(lo[ix:], loSyll)
+		origSyll := orig[ix:ix + len(loSyll)]
+		origSylls = append(origSylls, origSyll)
 	}
-	int ix = 0;
-	for (int i = 0; i < loSylls.Count; ++i)
-	{
-	ix = lo.IndexOf(loSylls[i], ix);
-	string origSyll = orig.Substring(ix, loSylls[i].Length);
-	ix += origSyll.Length;
-	res.Add(origSyll);
-	}
-
-
 	return
+}
+
+func (cp *CP) PinyinNumsToSurf(pyNums string) string {
+	pyNumsLo := strings.ToLower(pyNums)
+	loSylls := cp.pinyin.SplitSyllables(pyNumsLo)
+	var loSyllsPretty = make([]string, 0)
+	for _, ls := range(loSylls) {
+		pretty := cp.pinyin.NumToSurf(ls)
+		if pretty == "" {
+			pretty = ls
+		}
+		loSyllsPretty = append(loSyllsPretty, pretty)
+	}
+	origSylls := getOrigSylls(pyNums, pyNumsLo, loSylls)
+	var sb strings.Builder
+	for i, loSyllPretty := range(loSyllsPretty) {
+		// Original was lower case
+		if loSylls[i] == origSylls[i] {
+			sb.WriteString(loSyllPretty)
+			continue
+		}
+		// Make first letter upper case, copy rest as is
+		for j, chr := range(loSyllPretty) {
+			if j == 0 {
+				sb.WriteRune(unicode.ToUpper(chr))
+			} else {
+				sb.WriteRune(chr)
+			}
+		}
+	}
+	return sb.String()
 }
