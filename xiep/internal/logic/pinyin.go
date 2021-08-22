@@ -15,20 +15,18 @@ import (
 var efs embed.FS
 
 type syllable struct {
-	text string
+	text       string
 	vowelStart bool
 }
 
-type PY struct {
-	sylls []syllable
+type Pinyin struct {
+	sylls     []syllable
 	surfToNum map[string]string
 	numToSurf map[string]string
 }
 
-var Pinyin *PY = loadPinyin()
-
-func loadPinyin() *PY {
-	var p PY
+func LoadPinyin() *Pinyin {
+	var p Pinyin
 	p.init()
 	f, err := efs.Open("pinyin.txt")
 	if err != nil {
@@ -53,39 +51,39 @@ func loadPinyin() *PY {
 	return &p
 }
 
-func (p *PY) init() {
+func (p *Pinyin) init() {
 	p.numToSurf = make(map[string]string)
 	p.surfToNum = make(map[string]string)
 }
 
-func (p *PY) parseInputLine(line string) {
+func (p *Pinyin) parseInputLine(line string) {
 	if len(line) == 0 {
 		return
 	}
 	parts := strings.Split(line, "\t")
 	isVowelStart := parts[1] == "v"
 	p.sylls = append(p.sylls, syllable{parts[0], isVowelStart})
-	p.surfToNum[parts[1]] = parts[0];
-	p.surfToNum[parts[2]] = parts[0] + "1";
-	p.surfToNum[parts[3]] = parts[0] + "2";
-	p.surfToNum[parts[4]] = parts[0] + "3";
-	p.surfToNum[parts[5]] = parts[0] + "4";
-	p.numToSurf[parts[0]] = parts[1];
-	p.numToSurf[parts[0] + "1"] = parts[2];
-	p.numToSurf[parts[0] + "2"] = parts[3];
-	p.numToSurf[parts[0] + "3"] = parts[4];
-	p.numToSurf[parts[0] + "4"] = parts[5];
+	p.surfToNum[parts[1]] = parts[0]
+	p.surfToNum[parts[2]] = parts[0] + "1"
+	p.surfToNum[parts[3]] = parts[0] + "2"
+	p.surfToNum[parts[4]] = parts[0] + "3"
+	p.surfToNum[parts[5]] = parts[0] + "4"
+	p.numToSurf[parts[0]] = parts[1]
+	p.numToSurf[parts[0]+"1"] = parts[2]
+	p.numToSurf[parts[0]+"2"] = parts[3]
+	p.numToSurf[parts[0]+"3"] = parts[4]
+	p.numToSurf[parts[0]+"4"] = parts[5]
 }
 
-func (p *PY) NumToSurf(num string) string {
+func (p *Pinyin) NumToSurf(num string) string {
 	return p.numToSurf[num]
 }
 
-func (p *PY) SurfToNum(surf string) string {
+func (p *Pinyin) SurfToNum(surf string) string {
 	return p.surfToNum[surf]
 }
 
-func (p* PY) matchSylls(str string, pos int, ends *[]int) bool {
+func (p *Pinyin) matchSylls(str string, pos int, ends *[]int) bool {
 	// Reach end of string: good
 	if pos == len(str) {
 		return true
@@ -93,7 +91,7 @@ func (p* PY) matchSylls(str string, pos int, ends *[]int) bool {
 	// Get rest of string to match
 	rest := str[pos:]
 	// Try all syllables in syllabary
-	for _, ps := range(p.sylls) {
+	for _, ps := range p.sylls {
 		// Syllables starting with a vowel not allowed inside text
 		if pos != 0 && ps.vowelStart {
 			continue
@@ -115,7 +113,7 @@ func (p* PY) matchSylls(str string, pos int, ends *[]int) bool {
 				return true
 			}
 			// Otherwise, backtrack, move on to next syllable
-			*ends = (*ends)[:len(*ends) - 1]
+			*ends = (*ends)[:len(*ends)-1]
 		}
 	}
 	// Punctuation: treat as separate syllables
@@ -130,14 +128,14 @@ func (p* PY) matchSylls(str string, pos int, ends *[]int) bool {
 				return true
 			}
 			// Otherwise, backtrack, move on to next syllable
-			*ends = (*ends)[:len(*ends) - 1]
+			*ends = (*ends)[:len(*ends)-1]
 		}
 	}
 	// If we're here, failed to resolve syllables
 	return false
 }
 
-func (p *PY) SplitSyllables(text string) (res []string) {
+func (p *Pinyin) SplitSyllables(text string) (res []string) {
 	res = []string{}
 	// Sanity check
 	if len(text) == 0 {
@@ -154,7 +152,7 @@ func (p *PY) SplitSyllables(text string) (res []string) {
 	}
 	// Split at calculated position
 	i := 0
-	for _, j := range(ends) {
+	for _, j := range ends {
 		res = append(res, text[i:j])
 		i = j
 	}

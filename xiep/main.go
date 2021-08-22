@@ -14,7 +14,7 @@ import (
 
 const (
 	authCookieName = "xiepauth"
-	baseurl = "localhost"
+	baseurl        = "localhost"
 )
 
 func appendTimestamp(p string) (string, error) {
@@ -92,4 +92,3 @@ func boo(c *gin.Context) {
 	sessionId := c.Value("sessionId")
 	c.JSON(http.StatusOK, gin.H{"sessionId": sessionId})
 }
-

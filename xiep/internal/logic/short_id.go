@@ -11,7 +11,7 @@ var idCounter uint32 = (uint32)(time.Now().Unix())
 
 func GetShortId() string {
 	val := atomic.AddUint32(&idCounter, 1)
-	buf := [4]byte {
+	buf := [4]byte{
 		(byte)(val & 0xff),
 		(byte)((val >> 8) & 0xff),
 		(byte)((val >> 16) & 0xff),
