@@ -33,6 +33,30 @@ func TestXieCharEquality(t *testing.T) {
 	}
 }
 
+func TestXieChar_CompareTo(t *testing.T) {
+	type Itm struct {
+		X   XieChar
+		Y   XieChar
+		Res int
+	}
+	vals := []Itm{
+		{X: XieChar{Hanzi: "A"}, Y: XieChar{Hanzi: "A"}, Res: 0},
+		{X: XieChar{Hanzi: "A"}, Y: XieChar{Hanzi: "B"}, Res: -1},
+		{X: XieChar{Hanzi: "B"}, Y: XieChar{Hanzi: "A"}, Res: 1},
+		{X: XieChar{Hanzi: "A", Pinyin: "x"}, Y: XieChar{Hanzi: "A", Pinyin: "x"}, Res: 0},
+		{X: XieChar{Hanzi: "A", Pinyin: "x"}, Y: XieChar{Hanzi: "B", Pinyin: "a"}, Res: -1},
+		{X: XieChar{Hanzi: "B", Pinyin: "A"}, Y: XieChar{Hanzi: "A", Pinyin: "x"}, Res: 1},
+		{X: XieChar{Hanzi: "A", Pinyin: "x"}, Y: XieChar{Hanzi: "A"}, Res: -1},
+		{X: XieChar{Hanzi: "A"}, Y: XieChar{Hanzi: "A", Pinyin: "x"}, Res: 1},
+	}
+	for _, val := range vals {
+		res := val.X.CompareTo(&val.Y)
+		if res != val.Res {
+			t.Errorf("%v compares to %v as %v; expected %v", val.X, val.Y, res, val.Res)
+		}
+	}
+}
+
 func TestXieCharJson(t *testing.T) {
 	type Itm struct {
 		XC XieChar

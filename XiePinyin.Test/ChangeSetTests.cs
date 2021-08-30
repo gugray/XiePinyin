@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using XiePinyin.Logic;
 
@@ -24,6 +25,23 @@ namespace XiePinyin.Test
         {
             var cs = ChangeSet.FromDiagStr(csStr);
             Assert.IsFalse(cs.IsValid());
+        }
+
+        [TestCase("4>0,1,2,3", "2", "2")]
+        [TestCase("4>0,2,X,3", "0,1,2,3,4", "0,1,1,2,4")]
+        [TestCase("4>0,1,2,X,3", "0,1,2,3,4", "0,1,2,3,5")]
+        public void ForwardPositions_Correct(string csStr, string possInStr, string possOutStr)
+        {
+            var cs = ChangeSet.FromDiagStr(csStr);
+            var possInParts = possInStr.Split(',');
+            var possIn = new List<int>();
+            foreach (var x in possInParts) possIn.Add(int.Parse(x));
+            var possInArr = possIn.ToArray();
+            var possOutParts = possOutStr.Split(',');
+            var possOut = new List<int>();
+            foreach (var x in possOutParts) possOut.Add(int.Parse(x));
+            ChangeSet.ForwardPositions(cs, possInArr);
+            Assert.AreEqual(possInArr, possOut.ToArray());
         }
 
         [TestCase("0>X,Y", "2>1,A", "0>Y,A")]

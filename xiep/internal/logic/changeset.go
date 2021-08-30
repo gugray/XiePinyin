@@ -133,7 +133,7 @@ func (cs *ChangeSet) DeserializeJSON(jsonStr string) error {
 	}
 	var cse ChangeSetEnvelope
 	if err := json.Unmarshal([]byte(jsonStr), &cse); err != nil {
-		return  err
+		return err
 	}
 	cs.LengthBefore = cse.LengthBefore
 	cs.LengthAfter = cse.LengthAfter
@@ -142,7 +142,7 @@ func (cs *ChangeSet) DeserializeJSON(jsonStr string) error {
 		var pos uint
 		err := json.Unmarshal(itmJson, &pos)
 		if err == nil {
-			if pos + 1 > cs.LengthBefore {
+			if pos+1 > cs.LengthBefore {
 				return errors.New("invalid data: kept position beyond LengthBefore")
 			}
 			cs.appendKeptRange(pos, pos)
@@ -158,7 +158,7 @@ func (cs *ChangeSet) DeserializeJSON(jsonStr string) error {
 	return nil
 }
 
-func ApplyChangeSet(text []XieChar, cs ChangeSet) []XieChar {
+func (cs *ChangeSet) Apply(text []XieChar) []XieChar {
 	if cs.LengthBefore != (uint)(len(text)) {
 		panic("Change set's LengthBefore must match text's length")
 	}
@@ -173,3 +173,180 @@ func ApplyChangeSet(text []XieChar, cs ChangeSet) []XieChar {
 	return res
 }
 
+func (cs *ChangeSet) ForwardPositions(poss []uint) {
+	pp := make([]int, 0, len(poss))
+	for _, x := range poss {
+		pp = append(pp, (int)(x))
+	}
+	var length uint = 0
+	for _, itm := range cs.Items {
+		if _, ok := itm.(XieChar); ok {
+			length++
+			continue
+		}
+		ix := (int)(itm.(uint))
+		for j := range pp {
+			if pp[j] == -1 {
+				continue
+			} else if ix+1 == pp[j] {
+				poss[j] = length + 1
+				pp[j] = -1
+			} else if ix >= pp[j] {
+				poss[j] = length
+				pp[j] = -1
+			}
+		}
+		length++
+	}
+	for j := range pp {
+		if pp[j] != -1 {
+			poss[j] = length
+		}
+	}
+}
+
+func (a *ChangeSet) Compose(b *ChangeSet) *ChangeSet {
+	if a.LengthAfter != b.LengthBefore {
+		panic("LengthAfter of LHS must equal LengthBefore of RHS")
+	}
+	var res ChangeSet
+	res.LengthBefore = a.LengthBefore
+	res.LengthAfter = b.LengthAfter
+	res.Items = make([]interface{}, 0, res.LengthAfter)
+	for _, bItm := range b.Items {
+		if xc, ok := bItm.(XieChar); ok {
+			res.Items = append(res.Items, xc)
+		} else {
+			ix := bItm.(uint)
+			res.Items = append(res.Items, a.Items[ix])
+		}
+	}
+	return &res
+}
+
+func (a *ChangeSet) Merge(b *ChangeSet) *ChangeSet {
+	if a.LengthBefore != b.LengthBefore {
+		panic("change sets must have same LengthBefore")
+	}
+	var res ChangeSet
+	res.LengthBefore = a.LengthBefore
+	ixa := 0
+	ixb := 0
+	for ; ixa < len(a.Items) || ixb < len(b.Items); {
+		if ixa == len(a.Items) {
+			if _, ok := b.Items[ixb].(XieChar); ok {
+				res.Items = append(res.Items, b.Items[ixb])
+			}
+			ixb++
+			continue
+		}
+		if ixb == len(b.Items) {
+			if _, ok := a.Items[ixa].(XieChar); ok {
+				res.Items = append(res.Items, a.Items[ixa])
+			}
+			ixa++
+			continue
+		}
+		// We got stuff in both
+		ca, aIsChar := a.Items[ixa].(XieChar)
+		cb, bIsChar := b.Items[ixb].(XieChar)
+		// Both are kept characters: sync up position, and keep what's kept in both
+		if !aIsChar && !bIsChar {
+			vala := a.Items[ixa].(uint)
+			valb := b.Items[ixb].(uint)
+			if vala == valb {
+				res.Items = append(res.Items, vala)
+				ixa++
+				ixb++
+			} else if vala < valb {
+				ixa++
+			} else {
+				ixb++
+			}
+			continue
+		}
+		// Both are insertions: insert both, in lexicographical order (so merge is commutative)
+		if aIsChar && bIsChar {
+			if ca.CompareTo(&cb) < 0 {
+				res.Items = append(res.Items, ca)
+				res.Items = append(res.Items, cb)
+			} else {
+				res.Items = append(res.Items, cb)
+				res.Items = append(res.Items, ca)
+			}
+			ixa++
+			ixb++
+			continue
+		}
+		// If only one is an insertion, keep that, and advance in that changeset
+		if aIsChar {
+			res.Items = append(res.Items, ca)
+			ixa++
+		} else {
+			res.Items = append(res.Items, cb)
+			ixb++
+		}
+	}
+	res.LengthAfter = uint(len(res.Items))
+	return &res
+}
+
+
+func (a *ChangeSet) Follow(b *ChangeSet) *ChangeSet {
+	if a.LengthBefore != b.LengthBefore {
+		panic("change sets must have same LengthBefore")
+	}
+	var res ChangeSet
+	res.LengthBefore = a.LengthAfter
+	ixa := 0
+	ixb := 0
+	for ; ixa < len(a.Items) || ixb < len(b.Items); {
+		if ixa == len(a.Items) {
+			// Insertions in B become insertions
+			if _, ok := b.Items[ixb].(XieChar); ok {
+				res.Items = append(res.Items, b.Items[ixb])
+			}
+			ixb++
+			continue
+		}
+		if ixb == len(b.Items) {
+			// Insertions in A become retained characters
+			if _, ok := a.Items[ixa].(XieChar); ok {
+				res.Items = append(res.Items, uint(ixa))
+			}
+			ixa++
+			continue
+		}
+		// We got stuff in both
+		_, aIsChar := a.Items[ixa].(XieChar)
+		_, bIsChar := b.Items[ixb].(XieChar)
+		// Both are kept characters: sync up position, and keep what's kept in both
+		if !aIsChar && !bIsChar {
+			vala := a.Items[ixa].(uint)
+			valb := b.Items[ixb].(uint)
+			if vala == valb {
+				res.Items = append(res.Items, uint(ixa))
+				ixa++
+				ixb++
+			} else if vala < valb {
+				ixa++
+			} else {
+				ixb++
+			}
+			continue
+		}
+		if aIsChar {
+			// Insertions in A become retained characters
+			res.Items = append(res.Items, uint(ixa))
+			ixa++
+			continue
+		} else {
+			// Insertions in B become insertions
+			res.Items = append(res.Items, b.Items[ixb])
+			ixb++
+			continue
+		}
+	}
+	res.LengthAfter = uint(len(res.Items))
+	return &res
+}

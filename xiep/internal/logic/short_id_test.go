@@ -10,6 +10,7 @@ func TestShortIdString(t *testing.T) {
 		id string
 	}{
 		{2534041626, "s02kC9M"},
+		{2208776414, "p70TA9A"},
 	}
 	for _, val := range vals {
 		if id := makeShortIdString(val.x); id != val.id {

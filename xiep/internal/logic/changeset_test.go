@@ -85,10 +85,10 @@ func TestChangeSet_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestApplyChangeSet(t *testing.T) {
+func TestChangeSet_Apply(t *testing.T) {
 	vals := [][]string{
-		{"A", "1>0", "A"},
-		{"A", "1>", ""},
+		{"X", "1>0", "X"},
+		{"X", "1>", ""},
 		{"A", "1>X,0,Y", "XAY"},
 		{"ABC", "3>X,1,Y", "XBY"},
 		{"", "0>X,Y", "XY"},
@@ -97,7 +97,7 @@ func TestApplyChangeSet(t *testing.T) {
 		before := makeXieText(val[0])
 		var cs ChangeSet
 		cs.FromDiagStr(val[1])
-		after := ApplyChangeSet(before, cs)
+		after := cs.Apply(before)
 		expected := makeXieText(val[2])
 		if !testXieTextEq(after, expected) {
 			t.Errorf("Wrong text after applying changeset %v to %v", val[1], val[0])
@@ -123,4 +123,90 @@ func testXieTextEq(a, b []XieChar) bool {
 		}
 	}
 	return true
+}
+
+func TestChangeSet_ForwardPositions(t *testing.T) {
+	type Itm struct {
+		CS       string
+		Expected []uint
+	}
+	vals := []Itm{
+		{"4>0,1,2,3", []uint{0, 1, 2, 3, 4}},
+		{"4>0,2,X,3", []uint{0, 1, 1, 2, 4}},
+		{"4>0,1,2,X,3", []uint{0, 1, 2, 3, 5}},
+	}
+	for _, val := range vals {
+		var cs ChangeSet
+		cs.FromDiagStr(val.CS)
+		poss := make([]uint, 0, cs.LengthBefore)
+		for i := uint(0); i <= cs.LengthBefore; i++ {
+			poss = append(poss, i)
+		}
+		cs.ForwardPositions(poss)
+		ok := len(poss) == len(val.Expected)
+		for i := 0; ok && i < len(poss); i++ {
+			ok = ok && poss[i] == val.Expected[i]
+		}
+		if !ok {
+			t.Errorf("Changeset %v forwarded positions to %v; expected %v", val.CS, poss, val.Expected)
+		}
+	}
+}
+
+func TestChangeSet_Compose(t *testing.T) {
+	vals := [][]string{
+		{"0>X,Y", "2>1,X", "0>Y,X"},
+		{"0>X", "1>X", "0>X"},
+		{"0>X", "1>Y,0", "0>Y,X"},
+		{"0>X", "1>0,Y", "0>X,Y"},
+		{"0>X", "1>0", "0>X"},
+		{"0>", "0>X", "0>X"},
+	}
+	for _, val := range vals {
+		var a, b ChangeSet
+		a.FromDiagStr(val[0])
+		b.FromDiagStr(val[1])
+		res := a.Compose(&b)
+		resStr := res.ToDiagStr()
+		if resStr != val[2] {
+			t.Errorf("Composing %v with %v yielded %v; expected %v", val[0], val[1], resStr, val[2])
+		}
+	}
+}
+
+func TestChangeSet_Merge(t *testing.T) {
+	vals := [][]string{
+		{"8>1,s,i,7", "8>1,a,x,2", "8>1,a,s,i,x"},
+		{"8>0,1,s,i,7", "8>0,e,i,x,6,7", "8>0,e,i,x,s,i,7"},
+		{"8>0,1,s,i,7", "8>0,e,6,o,w", "8>0,e,s,i,o,w"},
+	}
+	for _, val := range vals {
+		var a, b ChangeSet
+		a.FromDiagStr(val[0])
+		b.FromDiagStr(val[1])
+		res := a.Merge(&b)
+		resStr := res.ToDiagStr()
+		if resStr != val[2] {
+			t.Errorf("Merging %v with %v yielded %v; expected %v", val[0], val[1], resStr, val[2])
+		}
+	}
+}
+
+func TestChangeSet_Follow(t *testing.T) {
+	vals := [][]string{
+		{"2>Q,0,1", "2>0,1", "3>0,1,2"},
+		{"2>Q,0,1", "2>W,0,1", "3>0,W,1,2"},
+		{"8>0,e,6,o,w", "8>0,1,s,i,7", "5>0,1,s,i,3,4"},
+		{"8>0,1,s,i,7", "8>0,e,6,o,w", "5>0,e,2,3,o,w"},
+	}
+	for _, val := range vals {
+		var a, b ChangeSet
+		a.FromDiagStr(val[0])
+		b.FromDiagStr(val[1])
+		res := a.Follow(&b)
+		resStr := res.ToDiagStr()
+		if resStr != val[2] {
+			t.Errorf("Following %v with %v yielded %v; expected %v", val[0], val[1], resStr, val[2])
+		}
+	}
 }
