@@ -1,94 +1,103 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
-	"html/template"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"path"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+	"xiep/internal/site"
 )
 
-const (
-	authCookieName = "xiepauth"
-	baseurl        = "localhost"
-)
-
-func appendTimestamp(p string) (string, error) {
-
-	info, err := os.Stat(path.Join("static", p))
-	if err != nil {
-		return "", err
-	}
-	res := p + "?v=" + fmt.Sprintf("%v", info.ModTime().Unix())
-	return res, nil
-}
+var config site.Config
+var isProd = false
+var logFile *os.File
 
 func main() {
+
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	initEnv()
+	addStr := ":" + strconv.FormatUint(uint64(config.ServicePort), 10)
+
 	r := gin.New()
-	r.GET("/api/auth/login", login)
-	r.GET("/api/auth/logout", logout)
-
-	rDoc := r.Group("/api/doc")
-	rDoc.Use(checkAuth)
-	rDoc.GET("/boo", boo)
-
-	r.Use(gin.Logger())
-	r.SetFuncMap(template.FuncMap{"appendTimestamp": appendTimestamp})
-	r.LoadHTMLFiles("index.tmpl")
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{"Ver": "1.2.3"})
-	})
-	r.Use(static.Serve("/", static.LocalFile("./static", true)))
-
-	if err := r.Run(); err != nil {
-		log.Fatal("Failed to start:", err)
+	var  logOutput io.Writer
+	if isProd {
+		logOutput = logFile
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		mw := io.MultiWriter(os.Stdout, logFile)
+		logOutput = mw
 	}
+	log.SetOutput(logOutput)
+	gin.DefaultWriter = ginWriter{}
+
+	site.InitInfra(r)
+	site.InitHandlers(r)
+	site.InitContent(r)
+
+	srv := &http.Server{
+		Addr:    addStr,
+		Handler: r,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			msg := fmt.Sprintf("Server encountered a fatal error: %v", err)
+			site.XieLogFatal(site.LogSrcApp, msg)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server with a timeout
+	quit := make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	site.XieLogf(site.LogSrcApp, "Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		msg := fmt.Sprintf("Server forced to shut down: %v", err)
+		site.XieLogFatal(site.LogSrcApp, msg)
+	}
+	site.XieLogf(site.LogSrcApp, "Server exiting")
 }
 
-func checkAuth(c *gin.Context) {
-	cookie, err := c.Request.Cookie(authCookieName)
+func initEnv() {
+	if envName := strings.ToLower(os.Getenv(site.EnvVarName)); envName == "prod" {
+		isProd = true
+	}
+	cfgPath := os.Getenv(site.ConfigVarName)
+	if len(cfgPath) == 0 {
+		cfgPath = site.DevConfigPath
+	}
+	cfgJson, err := ioutil.ReadFile(cfgPath)
 	if err != nil {
-		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8", []byte("access denied"))
-		c.Abort()
-		//c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
+		log.Fatal(err)
 	}
-	val, _ := url.QueryUnescape(cookie.Value)
-	c.Set("sessionId", val)
-	// Continue down the chain to handler etc
-	c.Next()
+	if err := json.Unmarshal(cfgJson, &config); err != nil {
+		log.Fatal(err)
+	}
+	logFile, err = os.OpenFile(config.LogFile, os.O_CREATE | os.O_APPEND | os.O_RDWR, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
-// login is a handler that parses a form and checks for specific data
-func login(c *gin.Context) {
+type ginWriter struct{}
 
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     authCookieName,
-		Value:    url.QueryEscape("{barf}"),
-		MaxAge:   60 * 60,
-		Path:     "/",
-		Domain:   baseurl,
-		Secure:   false,
-		HttpOnly: false,
-		SameSite: http.SameSiteStrictMode,
-	})
-}
-
-func logout(c *gin.Context) {
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     authCookieName,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: false,
-	})
-}
-
-func boo(c *gin.Context) {
-	sessionId := c.Value("sessionId")
-	c.JSON(http.StatusOK, gin.H{"sessionId": sessionId})
+func (_ ginWriter) Write(data []byte) (n int, err error) {
+	msg := string(data)
+	if strings.HasSuffix(msg, "\n") {
+		msg = strings.TrimSuffix(msg, "\n")
+	}
+	site.XieLogf("Gin", msg)
+	return len(data), nil
 }

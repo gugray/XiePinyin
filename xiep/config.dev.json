@@ -1,0 +1,10 @@
+{
+  "sourcesFolder": "../../_sources",
+  "docsFolder": "../../_data/_docs",
+  "exportsFolder": "../../_data/_exports",
+  "secretsFile": "../../_data/secrets.txt",
+  "logFile": "../../_data/_logs/xiep.log",
+  "servicePort": 1313,
+  "baseUrl": "localhost:1313/",
+  "webSocketAllowedOrigins": "http://localhost:1313"
+}
