@@ -16,12 +16,15 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"xiep/internal/common"
+	"xiep/internal/logic"
 	"xiep/internal/site"
 )
 
-var config site.Config
+var config common.Config
 var isProd = false
 var logFile *os.File
+var xlog XieSiteLogger
 
 func main() {
 
@@ -41,7 +44,9 @@ func main() {
 	log.SetOutput(logOutput)
 	gin.DefaultWriter = ginWriter{}
 
-	site.InitInfra(r)
+	logic.InitTheApp(&config, xlog)
+
+	site.InitInfra(r, xlog)
 	site.InitHandlers(r)
 	site.InitContent(r)
 
@@ -52,7 +57,7 @@ func main() {
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			msg := fmt.Sprintf("Server encountered a fatal error: %v", err)
-			site.XieLogFatal(site.LogSrcApp, msg)
+			xlog.LogFatal(common.LogSrcApp, msg)
 		}
 	}()
 
@@ -60,23 +65,23 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	site.XieLogf(site.LogSrcApp, "Shutting down server...")
+	xlog.Logf(common.LogSrcApp, "Shutting down server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		msg := fmt.Sprintf("Server forced to shut down: %v", err)
-		site.XieLogFatal(site.LogSrcApp, msg)
+		xlog.LogFatal(common.LogSrcApp, msg)
 	}
-	site.XieLogf(site.LogSrcApp, "Server exiting")
+	xlog.Logf(common.LogSrcApp, "Server exiting")
 }
 
 func initEnv() {
-	if envName := strings.ToLower(os.Getenv(site.EnvVarName)); envName == "prod" {
+	if envName := strings.ToLower(os.Getenv(common.EnvVarName)); envName == "prod" {
 		isProd = true
 	}
-	cfgPath := os.Getenv(site.ConfigVarName)
+	cfgPath := os.Getenv(common.ConfigVarName)
 	if len(cfgPath) == 0 {
-		cfgPath = site.DevConfigPath
+		cfgPath = common.DevConfigPath
 	}
 	cfgJson, err := ioutil.ReadFile(cfgPath)
 	if err != nil {
@@ -98,6 +103,26 @@ func (_ ginWriter) Write(data []byte) (n int, err error) {
 	if strings.HasSuffix(msg, "\n") {
 		msg = strings.TrimSuffix(msg, "\n")
 	}
-	site.XieLogf("Gin", msg)
+	xlog.Logf("Gin", msg)
 	return len(data), nil
 }
+
+
+type XieSiteLogger struct {}
+
+func (XieSiteLogger) Logf(prefix string, format string, v ...interface{}) {
+	var msg string
+	if v != nil {
+		msg = fmt.Sprintf(format, v)
+	} else {
+		msg = format
+	}
+	msg = fmt.Sprintf("[%s] %s\n", prefix, msg)
+	log.Printf(msg)
+}
+
+func (XieSiteLogger) LogFatal(prefix string, msg string) {
+	msg = fmt.Sprintf("[%s] %s\n", prefix, msg)
+	log.Fatal(msg)
+}
+

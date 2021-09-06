@@ -7,7 +7,7 @@ function getCookieValue(a) {
 }
 
 function isLoggedIn() {
-  let authCookie = getCookieValue("xieauth");
+  let authCookie = getCookieValue("xiepauth");
   if (!authCookie) return false;
   try {
     let data = JSON.parse(decodeURIComponent(authCookie));

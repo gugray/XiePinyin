@@ -5,48 +5,15 @@ import (
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"html/template"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"xiep/internal/common"
+	"xiep/internal/logic"
 )
 
-type Config struct {
-	SourcesFolder string
-	DocsFolder string
-	ExportsFolder string
-	SecretsFile string
-	LogFile string
-	ServicePort uint
-	BaseUrl string
-	WebSocketAllowedOrigins string
-}
-
-const (
-	EnvVarName     = "XIE_ENV"
-	ConfigVarName  = "CONFIG"
-	DevConfigPath  = "../config.dev.json"
-	LogSrcApp      = "Xie"
-	authCookieName = "xiepauth"
-	baseurl        = "localhost"
-)
-
-func XieLogf(prefix string, format string, v ...interface{}) {
-	var msg string
-	if v != nil {
-		msg = fmt.Sprintf(format, v)
-	} else {
-		msg = format
-	}
-	msg = fmt.Sprintf("[%s] %s\n", prefix, msg)
-	log.Printf(msg)
-}
-
-func XieLogFatal(prefix string, msg string) {
-	msg = fmt.Sprintf("[%s] %s\n", prefix, msg)
-	log.Fatal(msg)
-}
+var xlog common.XieLogger
 
 func AppendTimestamp(p string) (string, error) {
 	info, err := os.Stat(path.Join("static", p))
@@ -58,9 +25,11 @@ func AppendTimestamp(p string) (string, error) {
 }
 
 func InitHandlers(r *gin.Engine) {
-	// Login and logout handlers
-	r.GET("/api/auth/login", login)
-	r.GET("/api/auth/logout", logout)
+	// Login and logout handlers. Logout requires authentication; login does not
+	r.POST("/api/auth/login", handleAuthLogin)
+	rAuth := r.Group("/api/auth")
+	rAuth.Use(checkAuth)
+	rAuth.POST("/logout", handleAuthLogout)
 	// api/doc enpoints
 	rDoc := r.Group("/api/doc")
 	rDoc.Use(checkAuth)
@@ -76,7 +45,9 @@ func InitContent(r *gin.Engine) {
 	r.Use(static.Serve("/", static.LocalFile("./static", true)))
 }
 
-func InitInfra(r *gin.Engine) {
+func InitInfra(r *gin.Engine, logger common.XieLogger) {
+
+	xlog = logger
 
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		msg := fmt.Sprintf("%s %s %s %d %s",
@@ -95,22 +66,41 @@ func InitInfra(r *gin.Engine) {
 		for _, hn := range c.HandlerNames() {
 			msg += "\n -> " + hn
 		}
-		XieLogf(LogSrcApp, msg)
+		xlog.Logf(common.LogSrcApp, msg)
 		c.String(http.StatusInternalServerError, "internal server error")
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))
 }
 
 func checkAuth(c *gin.Context) {
-	cookie, err := c.Request.Cookie(authCookieName)
-	if err != nil {
-		c.Data(http.StatusUnauthorized, "text/html; charset=utf-8", []byte("access denied"))
-		c.Abort()
+
+	fail := func(msg string) {
 		//c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		deleteAuthCookie(c.Writer)
+		c.String(http.StatusUnauthorized, msg)
+		c.Abort()
+	}
+
+	cookie, err := c.Request.Cookie(common.AuthCookieName)
+	if err != nil {
+		fail("missing cookie")
 		return
 	}
-	val, _ := url.QueryUnescape(cookie.Value)
-	c.Set("sessionId", val)
-	// Continue down the chain to handler etc
+	cookieVal, err := url.QueryUnescape(cookie.Value)
+	if err != nil {
+		fail("cannot query-unescape cookie value")
+		return
+	}
+	var asc AuthSessionCookie
+	if err := asc.UnmarshalJSON([]byte(cookieVal)); err != nil {
+		fail("cannot parse json in cookie")
+		return
+	}
+	expiry := logic.TheApp.ASM.Check(asc.ID)
+	if expiry.IsZero() {
+		fail("session expired")
+		return
+	}
+	c.Set(common.SessionIdKey, asc.ID)
 	c.Next()
 }
