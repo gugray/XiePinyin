@@ -2,7 +2,6 @@ package site
 
 import (
 	"fmt"
-	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"html/template"
 	"net/http"
@@ -42,7 +41,7 @@ func InitContent(r *gin.Engine) {
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{"Ver": "1.2.3"})
 	})
-	r.Use(static.Serve("/", static.LocalFile("./static", true)))
+	r.Use(serveStatic("/", localFile("./static", true)))
 }
 
 func InitInfra(r *gin.Engine, logger common.XieLogger) {
