@@ -42,6 +42,9 @@ func initHandlers(r *gin.Engine) {
 	rDoc := r.Group("/api/doc")
 	rDoc.Use(checkAuth)
 	rDoc.GET("/boo", boo)
+	// Websocket at /sock
+	rSock := r.GET("/sock", handleSock)
+	rSock.Use(checkAuth)
 }
 
 func initContent(r *gin.Engine) {
