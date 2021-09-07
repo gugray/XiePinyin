@@ -2,17 +2,26 @@ package site
 
 import (
 	"fmt"
+	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"html/template"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"strings"
+	"time"
 	"xiep/internal/common"
 	"xiep/internal/logic"
 )
 
 var xlog common.XieLogger
+
+func Init(r *gin.Engine, logger common.XieLogger) {
+	initInfra(r, logger);
+	initContent(r)
+	initHandlers(r)
+}
 
 func AppendTimestamp(p string) (string, error) {
 	info, err := os.Stat(path.Join("static", p))
@@ -23,7 +32,7 @@ func AppendTimestamp(p string) (string, error) {
 	return res, nil
 }
 
-func InitHandlers(r *gin.Engine) {
+func initHandlers(r *gin.Engine) {
 	// Login and logout handlers. Logout requires authentication; login does not
 	r.POST("/api/auth/login", handleAuthLogin)
 	rAuth := r.Group("/api/auth")
@@ -35,26 +44,27 @@ func InitHandlers(r *gin.Engine) {
 	rDoc.GET("/boo", boo)
 }
 
-func InitContent(r *gin.Engine) {
+func initContent(r *gin.Engine) {
+	r.Use(addCacheHeaders)
 	r.SetFuncMap(template.FuncMap{"appendTimestamp": AppendTimestamp})
 	r.LoadHTMLFiles("index.tmpl")
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{"Ver": "1.2.3"})
 	})
-	r.Use(serveStatic("/", localFile("./static", true)))
+	r.Use(static.Serve("/", static.LocalFile("./static", true)))
 }
 
-func InitInfra(r *gin.Engine, logger common.XieLogger) {
+func initInfra(r *gin.Engine, logger common.XieLogger) {
 
 	xlog = logger
 
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		msg := fmt.Sprintf("%s %s %s %d %s",
+		msg := fmt.Sprintf("%d %s %s %s %s",
 			//param.TimeStamp.Format("2006/01/02 15:04:05.000"),
+			param.StatusCode,
 			param.ClientIP,
 			param.Method,
 			param.Path,
-			param.StatusCode,
 			param.Latency,
 		)
 		return msg
@@ -69,6 +79,22 @@ func InitInfra(r *gin.Engine, logger common.XieLogger) {
 		c.String(http.StatusInternalServerError, "internal server error")
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))
+}
+
+func addCacheHeaders(c *gin.Context) {
+
+	path := c.Request.URL.Path;
+	if path == "/" || strings.HasPrefix(path, "/doc") {
+		// No chaching for API and index files
+		c.Header("Cache-Control", "no-cache, no-store, must-revalidate	")
+		c.Header("Expires", "0")
+		c.Header("Pragma", "no-cache")
+	} else {
+		// Cache static files (everything else)
+		c.Header("Cache-Control", "private, max-age=31536000")
+		c.Header("Expires", time.Now().AddDate(1, 0, 0).Format(time.RFC1123))
+	}
+
 }
 
 func checkAuth(c *gin.Context) {

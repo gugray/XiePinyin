@@ -46,9 +46,7 @@ func main() {
 
 	logic.InitTheApp(&config, xlog)
 
-	site.InitInfra(r, xlog)
-	site.InitHandlers(r)
-	site.InitContent(r)
+	site.Init(r, xlog)
 
 	srv := &http.Server{
 		Addr:    addStr,
