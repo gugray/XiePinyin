@@ -89,7 +89,7 @@ func initInfra(r *gin.Engine, logger common.XieLogger) {
 func addCacheHeaders(c *gin.Context) {
 
 	path := c.Request.URL.Path;
-	if path == "/" || strings.HasPrefix(path, "/doc") {
+	if path == "/" || strings.HasPrefix(path, "/doc") || strings.HasPrefix(path, "/api") {
 		// No chaching for API and index files
 		c.Header("Cache-Control", "no-cache, no-store, must-revalidate	")
 		c.Header("Expires", "0")

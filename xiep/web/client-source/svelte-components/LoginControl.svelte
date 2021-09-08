@@ -18,7 +18,7 @@
   function onLoginClick() {
     if (secret.length == 0) return;
     var req = JQ.ajax({
-      url: "/api/auth/login/",
+      url: "/api/auth/login",
       type: "POST",
       data: {
         secret: secret,
