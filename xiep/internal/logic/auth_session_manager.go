@@ -64,7 +64,7 @@ func (asm *AuthSessionManager) Check(sessionId string) time.Time {
 		return time.Time{}
 	} else {
 		utcNow := time.Now().UTC()
-		if expiry.After(utcNow) {
+		if utcNow.After(expiry) {
 			delete(asm.sessions, sessionId)
 			return time.Time{}
 		}

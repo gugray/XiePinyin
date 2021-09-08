@@ -16,6 +16,7 @@ const (
 	ConfigVarName         = "CONFIG"
 	DevConfigPath         = "../config.dev.json"
 	LogSrcApp             = "Xie"
+	LogSrcDocJug          = "DocJug"
 	AuthCookieName        = "xiepauth"
 	Baseurl               = "localhost"
 	SessionTimeoutMinutes = 60 * 72

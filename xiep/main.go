@@ -63,14 +63,17 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	xlog.Logf(common.LogSrcApp, "Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		msg := fmt.Sprintf("Server forced to shut down: %v", err)
+
+	xlog.Logf(common.LogSrcApp, "Shutting down server gracefully")
+	ctx1, cancel1 := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel1()
+	if err := srv.Shutdown(ctx1); err != nil {
+		msg := fmt.Sprintf("Server failed to shut down: %v", err)
 		xlog.LogFatal(common.LogSrcApp, msg)
 	}
-	xlog.Logf(common.LogSrcApp, "Server exiting")
+	xlog.Logf(common.LogSrcApp, "Shutting down background processes and cleaning up")
+	logic.TheApp.Shutdown()
+	xlog.Logf(common.LogSrcApp, "Goodbye.")
 }
 
 func initEnv() {

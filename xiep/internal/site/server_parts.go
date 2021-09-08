@@ -41,7 +41,9 @@ func initHandlers(r *gin.Engine) {
 	// api/doc enpoints
 	rDoc := r.Group("/api/doc")
 	rDoc.Use(checkAuth)
-	rDoc.GET("/boo", boo)
+	rDoc.GET("/open", handleDocOpen)
+	rDoc.POST("/create", handleDocCreate)
+	rDoc.POST("/delete", handleDocDelete)
 	// Websocket at /sock
 	rSock := r.GET("/sock", handleSock)
 	rSock.Use(checkAuth)

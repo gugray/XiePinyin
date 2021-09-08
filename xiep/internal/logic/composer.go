@@ -15,22 +15,22 @@ type charReading struct {
 	Pinyin	string `json:"pinyin"`
 }
 
-type CP struct {
+type Composer struct {
 	pinyin *Pinyin
 	readingsSimp []charReading
 	readingsTrad []charReading
 }
 
-func LoadComposerFromFiles(dataDir string) *CP {
-	var res CP
+func LoadComposerFromFiles(dataDir string) *Composer {
+	var res Composer
 	res.pinyin = LoadPinyin()
 	res.readingsSimp = loadCharReadings(path.Join(dataDir, "simp-map.json"))
 	res.readingsTrad = loadCharReadings(path.Join(dataDir, "trad-map.json"))
 	return &res
 }
 
-func LoadComposerFromString(simpJson, tradJson string) *CP {
-	var res CP
+func LoadComposerFromString(simpJson, tradJson string) *Composer {
+	var res Composer
 	res.pinyin = LoadPinyin()
 	if e := json.Unmarshal([]byte(simpJson), &res.readingsSimp); e != nil {
 		panic(fmt.Sprintf("Error parsing Json: %v", e))
@@ -58,7 +58,7 @@ func loadCharReadings(fnJson string) []charReading {
 	return res
 }
 
-func (cp *CP) Resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, readings [][]string) {
+func (cp *Composer) Resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, readings [][]string) {
 	readings = make([][]string, 0)
 	charReadings :=  cp.readingsTrad
 	if isSimp {
@@ -96,7 +96,7 @@ func getOrigSylls(orig string, lo string, loSylls []string) (origSylls []string)
 	return
 }
 
-func (cp *CP) PinyinNumsToSurf(pyNums string) string {
+func (cp *Composer) PinyinNumsToSurf(pyNums string) string {
 	pyNumsLo := strings.ToLower(pyNums)
 	loSylls := cp.pinyin.SplitSyllables(pyNumsLo)
 	var loSyllsPretty = make([]string, 0)

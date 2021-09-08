@@ -22,8 +22,7 @@ var wsupgrader = websocket.Upgrader{
 func handleSock(c *gin.Context) {
 	conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		fmt.Println("Failed to set websocket upgrade: %+v", err)
-		return
+		panic(fmt.Sprintf("websocket upgrade failed: %v", err))
 	}
 
 	for {

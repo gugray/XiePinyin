@@ -29,13 +29,19 @@ func (xc *XieChar) CompareTo(rhs *XieChar) int {
 		return x
 	}
 	if xc.Pinyin == rhs.Pinyin {
-		return  0
+		return 0
 	}
 	if len(xc.Pinyin) == 0 {
-		return  1
+		return 1
 	}
 	if len(rhs.Pinyin) == 0 {
 		return -1
 	}
 	return strings.Compare(xc.Pinyin, rhs.Pinyin)
+}
+
+type Selection struct {
+	Start        int  `json:"start"`
+	End          int  `json:"end"`
+	CaretAtStart bool `json:"caretAtStart"`
 }
