@@ -14,7 +14,7 @@ type resultWrapper struct {
 
 func handleDocOpen(c *gin.Context) {
 	//sessionId := c.Value("sessionId").(string)
-	docId, ok := requirePostParam(c, "docId")
+	docId, ok := requireParam(c, "docId", false)
 	if !ok {
 		return
 	}
@@ -27,7 +27,7 @@ func handleDocOpen(c *gin.Context) {
 }
 
 func handleDocCreate(c *gin.Context) {
-	name, ok := requirePostParam(c, "name")
+	name, ok := requireParam(c, "name", true)
 	if !ok {
 		return
 	}
@@ -39,7 +39,7 @@ func handleDocCreate(c *gin.Context) {
 }
 
 func handleDocDelete(c *gin.Context) {
-	docId, ok := requirePostParam(c, "docId")
+	docId, ok := requireParam(c, "docId", true)
 	if !ok {
 		return
 	}

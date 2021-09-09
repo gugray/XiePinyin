@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"encoding/json"
 	"os"
 	"path"
 	"sync"
@@ -24,10 +25,17 @@ type editSession struct {
 	DocId string
 	// Last communication from the session (either change or ping)
 	LastActiveUtc time.Time
-	// Time the session was requested. Equals DateTime.MinValue once session has started.
+	// Time the session was requested. Changes to zero time once session has started.
 	RequestedUtc time.Time
 	// This editor's selection, as it applies to the current head text.
-	Selection *Selection
+	Selection Selection
+}
+
+type sessionStartMessage struct {
+	Name           string      `json:"name"`
+	RevisionId     int         `json:"revisionId"`
+	Text           []XieChar   `json:"text"`
+	PeerSelections []Selection `json:"peerSelections"`
 }
 
 type documentJuggler struct {
@@ -203,4 +211,55 @@ func (dj *documentJuggler) RequestSession(docId string) (sessionKey string) {
 	dj.sessions = append(dj.sessions, &sess)
 
 	return sessionKey
+}
+
+func (dj *documentJuggler) getDocSelections(docId string) []Selection {
+	res := make([]Selection, 0, 1)
+	// TODO: Implemnt
+	return res
+}
+
+func (dj *documentJuggler) StartSession(sessionKey string) (startMsg string) {
+	dj.mu.Lock()
+	defer dj.mu.Unlock()
+
+	startMsg = ""
+	sessionIx := dj.getSessionIx(sessionKey)
+	if sessionIx == -1 {
+		return
+	}
+	sess := dj.sessions[sessionIx]
+	if sess.RequestedUtc.IsZero() {
+		return
+	}
+	docIx := dj.getDocIx(sess.DocId)
+	if docIx == -1 {
+		return
+	}
+	doc := dj.docs[docIx]
+	ssm := sessionStartMessage{
+		Name:           doc.Name,
+		RevisionId:     0, // TODO: len(doc.Revisions) - 1
+		Text:           doc.HeadText,
+		PeerSelections: dj.getDocSelections(doc.DocId),
+	}
+	sess.RequestedUtc = time.Time{}
+	sess.Selection = Selection{}
+	if startStrBytes, err := json.Marshal(&ssm); err == nil {
+		startMsg = string(startStrBytes)
+	}
+	return
+}
+
+func (dj *documentJuggler) IsSessionOpen(sessionKey string) bool {
+	dj.mu.Lock()
+	defer dj.mu.Unlock()
+
+	sessionIx := dj.getSessionIx(sessionKey)
+	return sessionIx != -1 && dj.sessions[sessionIx].RequestedUtc.IsZero()
+}
+
+func (dj *documentJuggler) ChangeReceived(sessionKey string, clientRevisionId int, selStr, changeStr string) bool {
+	// TODO: Implement
+	return  true
 }

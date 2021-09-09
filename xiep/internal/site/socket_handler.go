@@ -25,11 +25,9 @@ func handleSock(c *gin.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("websocket upgrade failed: %v", err))
 	}
+	defer conn.Close()
 
 	receive, send, closeConn := logic.TheApp.ConnectionManager.NewConnection(c.ClientIP())
-
-	defer conn.Close()
-	defer close(receive)
 
 	// Spawn separate goroutine for listening
 	go func() {
@@ -37,27 +35,30 @@ func handleSock(c *gin.Context) {
 			t, msg, err := conn.ReadMessage()
 			if err != nil {
 				// Log
+				receive(nil)
 				break
 			}
 			if t != websocket.TextMessage {
 				// Log
+				closeConn<- "Protocol violation: only text messages allowed"
 				break
 			}
-			receive <- string(msg)
+			msgStr := string(msg)
+			receive(&msgStr)
 		}
 	}()
 	for {
 		select {
+		case msg := <-send:
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+				// Log
+			}
+			break
 		case msg := <-closeConn:
 			if err := conn.WriteMessage(websocket.CloseMessage, []byte(msg)); err != nil {
 				// Log
 			}
 			break
-		case msg := <-send:
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-				// Log
-				break
-			}
 		}
 	}
 }

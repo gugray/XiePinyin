@@ -49,9 +49,11 @@ func initContent(r *gin.Engine) {
 	r.Use(addCacheHeaders)
 	r.SetFuncMap(template.FuncMap{"appendTimestamp": appendTimestamp})
 	r.LoadHTMLFiles("index.tmpl")
-	r.GET("/", func(c *gin.Context) {
+	serveIndex := func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{"Ver": "1.2.3"})
-	})
+	}
+	r.GET("/", serveIndex)
+	r.GET("/doc/*id", serveIndex)
 	r.Use(static.Serve("/", static.LocalFile("./static", true)))
 }
 
@@ -140,9 +142,13 @@ func checkAuth(c *gin.Context) {
 	c.Next()
 }
 
-// Retrieves a POST param. If param is not present, sets BadRequest and returns false.
-func requirePostParam(c *gin.Context, paramName string) (val string, ok bool) {
-	val, ok = c.GetPostForm(paramName)
+// Retrieves a POST or GET param. If param is not present, sets BadRequest and returns false.
+func requireParam(c *gin.Context, paramName string, isPost bool) (val string, ok bool) {
+	if isPost {
+		val, ok = c.GetPostForm(paramName)
+	} else {
+		val, ok = c.GetQuery(paramName)
+	}
 	if !ok {
 		c.String(http.StatusBadRequest, "Missing parameter: " + paramName)
 		return

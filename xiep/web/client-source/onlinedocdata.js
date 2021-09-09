@@ -30,7 +30,7 @@ module.exports = (function (sessionKey, docId) {
   function startSession(cbStart, cbTragedy, cbUpdate) {
     let sockUrl = window.location.protocol.startsWith("https") ? "wss://" : "ws://";
     sockUrl += window.location.host;
-    sockUrl += "/sock";
+    sockUrl += "/sock/";
     _ws = new WebSocket(sockUrl);
     _ws.onopen = onSocketOpen;
     _ws.onclose = onSocketClose;

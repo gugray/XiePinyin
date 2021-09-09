@@ -33,7 +33,7 @@ func (doc *Document) LoadFromFile(fileName string) error {
 	if data, err := os.ReadFile(fileName); err != nil {
 		return err
 	} else {
-		if err = json.Unmarshal(data, *doc); err != nil {
+		if err = json.Unmarshal(data, doc); err != nil {
 			return err
 		}
 	}
