@@ -55,7 +55,7 @@
 	function onCreateOnlineDone(e) {
 		if (e.detail.result == "ok") {
 			var req = JQ.ajax({
-				url: "/api/doc/create",
+				url: "/api/doc/create/",
 				type: "POST",
 				data: {
 					name: e.detail.name,
@@ -97,7 +97,7 @@
 		if (!e.detail) return;
 		const id = e.detail;
 		var req = JQ.ajax({
-			url: "/api/doc/delete",
+			url: "/api/doc/delete/",
 			type: "POST",
 			data: {
 				docId: id,
@@ -121,7 +121,7 @@
 		if (!isLoggedIn) showLogin = true;
 		else {
 			var req = JQ.ajax({
-				url: "/api/auth/logout",
+				url: "/api/auth/logout/",
 				type: "POST",
 			});
 			req.done(function (data) {

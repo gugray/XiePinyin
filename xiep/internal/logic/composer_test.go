@@ -13,8 +13,8 @@ func TestComposerPinyinNumsToSurf(t *testing.T) {
 		{"shu1zi", "shūzi"},
 		{"Bei3jing1", "Běijīng"},
 		{"Őz", "Őz"},
-		//{"wei4r", "wèir"}, // TO-DO
-		//{"da2an4", "dá'àn"}, // TO-DO
+		//{"wei4r", "wèir"}, // TODO
+		//{"da2an4", "dá'àn"}, // TODO
 	}
 	c := LoadComposerFromString(simpMapJson, tradMapJson)
 	for _, val := range(vals) {

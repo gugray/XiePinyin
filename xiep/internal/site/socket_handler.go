@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"net/http"
+	"xiep/internal/logic"
 )
 
 // http://arlimus.github.io/articles/gin.and.gorilla/
@@ -14,7 +15,7 @@ var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// TO-DO: Bring Config.WebSocketAllowedOrigins here
+		// TODO: Bring Config.WebSocketAllowedOrigins here
 		return true
 	},
 }
@@ -25,11 +26,38 @@ func handleSock(c *gin.Context) {
 		panic(fmt.Sprintf("websocket upgrade failed: %v", err))
 	}
 
-	for {
-		t, msg, err := conn.ReadMessage()
-		if err != nil {
-			break
+	receive, send, closeConn := logic.TheApp.ConnectionManager.NewConnection(c.ClientIP())
+
+	defer conn.Close()
+	defer close(receive)
+
+	// Spawn separate goroutine for listening
+	go func() {
+		for {
+			t, msg, err := conn.ReadMessage()
+			if err != nil {
+				// Log
+				break
+			}
+			if t != websocket.TextMessage {
+				// Log
+				break
+			}
+			receive <- string(msg)
 		}
-		conn.WriteMessage(t, msg)
+	}()
+	for {
+		select {
+		case msg := <-closeConn:
+			if err := conn.WriteMessage(websocket.CloseMessage, []byte(msg)); err != nil {
+				// Log
+			}
+			break
+		case msg := <-send:
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+				// Log
+				break
+			}
+		}
 	}
 }

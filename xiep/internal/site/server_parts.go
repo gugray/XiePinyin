@@ -17,41 +17,37 @@ import (
 
 var xlog common.XieLogger
 
+// Initializes the server, sets up middlewares, handlers etc.
 func Init(r *gin.Engine, logger common.XieLogger) {
-	initInfra(r, logger);
+	initInfra(r, logger)
 	initContent(r)
 	initHandlers(r)
 }
 
-func AppendTimestamp(p string) (string, error) {
-	info, err := os.Stat(path.Join("static", p))
-	if err != nil {
-		return "", err
-	}
-	res := p + "?v=" + fmt.Sprintf("%v", info.ModTime().Unix())
-	return res, nil
-}
-
 func initHandlers(r *gin.Engine) {
+	r.RedirectTrailingSlash = false
+	r.RedirectFixedPath = false
 	// Login and logout handlers. Logout requires authentication; login does not
-	r.POST("/api/auth/login", handleAuthLogin)
+	r.POST("/api/auth/login/", handleAuthLogin)
 	rAuth := r.Group("/api/auth")
 	rAuth.Use(checkAuth)
-	rAuth.POST("/logout", handleAuthLogout)
+	rAuth.POST("/logout/", handleAuthLogout)
 	// api/doc enpoints
-	rDoc := r.Group("/api/doc")
+	rDoc := r.Group("/api/doc/")
 	rDoc.Use(checkAuth)
-	rDoc.GET("/open", handleDocOpen)
-	rDoc.POST("/create", handleDocCreate)
-	rDoc.POST("/delete", handleDocDelete)
+	rDoc.GET("/open/", handleDocOpen)
+	rDoc.POST("/create/", handleDocCreate)
+	rDoc.POST("/delete/", handleDocDelete)
 	// Websocket at /sock
-	rSock := r.GET("/sock", handleSock)
-	rSock.Use(checkAuth)
+	r.GET("/sock/", handleSock)
+	// TODO: restore this when we're done playing in sandbox
+	//rSock := r.GET("/sock/", handleSock)
+	//rSock.Use(checkAuth)
 }
 
 func initContent(r *gin.Engine) {
 	r.Use(addCacheHeaders)
-	r.SetFuncMap(template.FuncMap{"appendTimestamp": AppendTimestamp})
+	r.SetFuncMap(template.FuncMap{"appendTimestamp": appendTimestamp})
 	r.LoadHTMLFiles("index.tmpl")
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.tmpl", gin.H{"Ver": "1.2.3"})
@@ -86,10 +82,19 @@ func initInfra(r *gin.Engine, logger common.XieLogger) {
 	}))
 }
 
+func appendTimestamp(p string) (string, error) {
+	info, err := os.Stat(path.Join("static", p))
+	if err != nil {
+		return "", err
+	}
+	res := p + "?v=" + fmt.Sprintf("%v", info.ModTime().Unix())
+	return res, nil
+}
+
 func addCacheHeaders(c *gin.Context) {
 
-	path := c.Request.URL.Path;
-	if path == "/" || strings.HasPrefix(path, "/doc") || strings.HasPrefix(path, "/api") {
+	reqPath := c.Request.URL.Path
+	if reqPath == "/" || strings.HasPrefix(reqPath, "/doc") || strings.HasPrefix(reqPath, "/api") {
 		// No chaching for API and index files
 		c.Header("Cache-Control", "no-cache, no-store, must-revalidate	")
 		c.Header("Expires", "0")
@@ -133,4 +138,14 @@ func checkAuth(c *gin.Context) {
 	}
 	c.Set(common.SessionIdKey, asc.ID)
 	c.Next()
+}
+
+// Retrieves a POST param. If param is not present, sets BadRequest and returns false.
+func requirePostParam(c *gin.Context, paramName string) (val string, ok bool) {
+	val, ok = c.GetPostForm(paramName)
+	if !ok {
+		c.String(http.StatusBadRequest, "Missing parameter: " + paramName)
+		return
+	}
+	return
 }

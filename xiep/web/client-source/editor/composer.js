@@ -89,7 +89,7 @@ module.exports = (function (elmHost) {
 
     let reqIx = ++_reqIx;
     var req = $.ajax({
-      url: "/api/compose",
+      url: "/api/compose/",
       type: "POST",
       data: {
         prompt: _plainPrompt,

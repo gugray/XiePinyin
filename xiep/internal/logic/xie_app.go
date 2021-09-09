@@ -5,21 +5,32 @@ import (
 	"xiep/internal/common"
 )
 
-var TheApp XieApp
+// Singleton holding the application logic behind the web server.
+var TheApp xieApp
 
-type XieApp struct {
-	ASM AuthSessionManager
-	Composer        *Composer
-	DocumentJuggler DocumentJuggler
+type xieApp struct {
+	ASM               authSessionManager
+	Composer          *Composer
+	DocumentJuggler   documentJuggler
+	ConnectionManager connectionManager
 }
 
+// Initializes the the application logic at startup.
 func InitTheApp(config *common.Config, xlog common.XieLogger) {
-	TheApp.ASM.Init(config.SecretsFile, xlog)
+
+	TheApp.ASM.init(config.SecretsFile, xlog)
 	TheApp.Composer = LoadComposerFromFiles("./static")
-	TheApp.DocumentJuggler.Init(xlog, TheApp.Composer, config.DocsFolder, config.ExportsFolder)
+	TheApp.DocumentJuggler.init(xlog, TheApp.Composer, config.DocsFolder, config.ExportsFolder)
+	TheApp.ConnectionManager.init(xlog, &TheApp.DocumentJuggler)
+
+	// Hook up the channels through which Doc Juggler sends to socket connected peers
+	broadcast, terminateSessions := TheApp.ConnectionManager.getListenerChannels()
+	TheApp.DocumentJuggler.broadcast = broadcast
+	TheApp.DocumentJuggler.terminateSessions = terminateSessions
 }
 
-func (app *XieApp) Shutdown() {
-	app.DocumentJuggler.Shutdown()
-	time.Sleep(200*time.Millisecond)
+// Tells long-running background tasks to stop and clean up.
+func (app *xieApp) Shutdown() {
+	app.DocumentJuggler.shutdown()
+	time.Sleep(200 * time.Millisecond)
 }

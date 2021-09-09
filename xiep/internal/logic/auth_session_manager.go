@@ -10,14 +10,14 @@ import (
 	"xiep/internal/common"
 )
 
-type AuthSessionManager struct {
+type authSessionManager struct {
 	secretsFileName string
 	xlog common.XieLogger
 	mu sync.Mutex
 	sessions map[string]time.Time
 }
 
-func (asm *AuthSessionManager) Init(secretsFileName string, xlog common.XieLogger) {
+func (asm *authSessionManager) init(secretsFileName string, xlog common.XieLogger) {
 	asm.secretsFileName = secretsFileName
 	asm.xlog = xlog
 	asm.sessions = make(map[string]time.Time)
@@ -25,7 +25,7 @@ func (asm *AuthSessionManager) Init(secretsFileName string, xlog common.XieLogge
 
 // Logout removes the session identified by the provided ID.
 // Has no effect, but does not fail, if such a session does not exist.
-func (asm *AuthSessionManager) Logout(sessionId string) {
+func (asm *authSessionManager) Logout(sessionId string) {
 	asm.mu.Lock()
 	defer asm.mu.Unlock()
 	delete(asm.sessions, sessionId)
@@ -34,7 +34,7 @@ func (asm *AuthSessionManager) Logout(sessionId string) {
 // Login checks if the provided secret is valid, and if yes, creates a new session.
 // On success, it returns the new session ID and the session's expiry in UTC.
 // If the secret is wrong, zero values are returned.
-func (asm *AuthSessionManager) Login(secret string) (sessionId string, expiryUtc time.Time) {
+func (asm *authSessionManager) Login(secret string) (sessionId string, expiryUtc time.Time) {
 	secrets := asm.readSecrets()
 	if _, ok := secrets[secret]; !ok {
 		return
@@ -57,7 +57,7 @@ func (asm *AuthSessionManager) Login(secret string) (sessionId string, expiryUtc
 // Check checks if a session exists, and is still valid.
 // If yes, it returns new expiry; otherwise, it returns zero time.
 // It extends expiry of still-valid sessions.
-func (asm *AuthSessionManager) Check(sessionId string) time.Time {
+func (asm *authSessionManager) Check(sessionId string) time.Time {
 	asm.mu.Lock()
 	defer asm.mu.Unlock()
 	if expiry, ok := asm.sessions[sessionId]; !ok {
@@ -74,11 +74,12 @@ func (asm *AuthSessionManager) Check(sessionId string) time.Time {
 	}
 }
 
-func (asm *AuthSessionManager) readSecrets() map[string]bool {
+func (asm *authSessionManager) readSecrets() map[string]bool {
 	file, err := os.Open(asm.secretsFileName)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open secrets file: %v", err))
 	}
+	//goland:noinspection GoUnhandledErrorResult
 	defer file.Close()
 	res := make(map[string]bool)
 	scanner := bufio.NewScanner(file)

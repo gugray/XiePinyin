@@ -105,7 +105,7 @@ module.exports = (function (elmHost, path, navigateTo) {
   function loadOnlineDoc() {
     // Retrieve online document
     var req = $.ajax({
-      url: "/api/doc/open",
+      url: "/api/doc/open/",
       type: "GET",
       data: {
         docId: _id,
@@ -200,7 +200,7 @@ module.exports = (function (elmHost, path, navigateTo) {
   function onExportDoc() {
     _header.$set({ docxEnabled: false });
     var req = $.ajax({
-      url: "/api/doc/exportdocx",
+      url: "/api/doc/exportdocx/",
       type: "POST",
       data: {
         docId: _id,
@@ -210,8 +210,8 @@ module.exports = (function (elmHost, path, navigateTo) {
       _header.$set({ docxEnabled: true });
       if (!data.result == "OK") return;
       const fn = data.data;
-      window.open("/api/doc/download?name=" + fn, '_blank');
-      //window.location.href = "/api/doc/download?name=" + fn;
+      window.open("/api/doc/download/?name=" + fn, '_blank');
+      //window.location.href = "/api/doc/download/?name=" + fn;
     });
     req.fail(function () {
       _header.$set({ docxEnabled: true });

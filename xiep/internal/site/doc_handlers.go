@@ -13,14 +13,22 @@ type resultWrapper struct {
 }
 
 func handleDocOpen(c *gin.Context) {
-	sessionId := c.Value("sessionId").(string)
-	sendDocSuccess(c, sessionId)
+	//sessionId := c.Value("sessionId").(string)
+	docId, ok := requirePostParam(c, "docId")
+	if !ok {
+		return
+	}
+	sessionKey := logic.TheApp.DocumentJuggler.RequestSession(docId)
+	if sessionKey == "" {
+		c.String(http.StatusNotFound, "Document not found.")
+		return
+	}
+	sendDocSuccess(c, sessionKey)
 }
 
 func handleDocCreate(c *gin.Context) {
-	name, ok := c.GetPostForm("name")
+	name, ok := requirePostParam(c, "name")
 	if !ok {
-		c.String(http.StatusBadRequest, "Missing parameter: name")
 		return
 	}
 	if docId, err := logic.TheApp.DocumentJuggler.CreateDocument(name); err != nil {
@@ -31,7 +39,12 @@ func handleDocCreate(c *gin.Context) {
 }
 
 func handleDocDelete(c *gin.Context) {
-
+	docId, ok := requirePostParam(c, "docId")
+	if !ok {
+		return
+	}
+	logic.TheApp.DocumentJuggler.DeleteDocument(docId)
+	sendDocSuccess(c, docId)
 }
 
 func sendDocSuccess(c *gin.Context, data string) {
