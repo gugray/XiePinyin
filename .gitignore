@@ -13,5 +13,6 @@ obj
 *.csproj.user
 *.njsproj.user
 .vs
+cloc.txt
 
 xiep/deploy
