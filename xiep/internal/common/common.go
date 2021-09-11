@@ -12,16 +12,16 @@ type Config struct {
 }
 
 const (
-	EnvVarName            = "XIE_ENV"
-	ConfigVarName         = "CONFIG"
-	DevConfigPath         = "../config.dev.json"
-	LogSrcApp             = "Xie"
-	LogSrcDocJug          = "DocJug"
-	AuthCookieName        = "xiepauth"
-	Baseurl               = "localhost"
-	SessionTimeoutMinutes = 60 * 72
-	Iso8601Layout         = "2006-01-02T15:04:05.999Z"
-	SessionIdKey          = "sessionId"
+	EnvVarName          = "XIE_ENV"
+	ConfigVarName       = "CONFIG"
+	DevConfigPath       = "../config.dev.json"
+	LogSrcApp           = "Xie"
+	LogSrcDocJug        = "DocJug"
+	LogSrcSocketHandler = "SocketHandler"
+	AuthCookieName      = "xiepauth"
+	LoginTimeoutMinutes = 60 * 72
+	Iso8601Layout       = "2006-01-02T15:04:05.999Z"
+	SessionIdKey        = "sessionId"
 )
 
 type XieLogger interface {

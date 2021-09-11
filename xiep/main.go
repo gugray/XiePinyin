@@ -45,8 +45,7 @@ func main() {
 	gin.DefaultWriter = ginWriter{}
 
 	logic.InitTheApp(&config, xlog)
-
-	site.Init(r, xlog)
+	site.InitServer(r, xlog, &config)
 
 	srv := &http.Server{
 		Addr:    addStr,

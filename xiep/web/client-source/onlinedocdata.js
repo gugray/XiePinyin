@@ -259,6 +259,13 @@ module.exports = (function (sessionKey, docId) {
       _sentChangesFromId = _revisionId;
       let msg = "CHANGE " + _revisionId + " " + JSON.stringify(_displaySel);
       if (_sentChanges != null) msg += " " + JSON.stringify(_sentChanges);
+
+      // // DBG
+      // if (msg.indexOf("q") != -1) {
+      //   _ws.send("BOO");
+      //   return;
+      // }
+
       _ws.send(msg);
     }
     catch (e) {

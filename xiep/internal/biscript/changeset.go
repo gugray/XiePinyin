@@ -8,13 +8,6 @@ import (
 	"strings"
 )
 
-// Represents a single selected range in biscriptal text.
-type Selection struct {
-	Start        int  `json:"start"`
-	End          int  `json:"end"`
-	CaretAtStart bool `json:"caretAtStart"`
-}
-
 // Operational transformation representing a single edit.
 type ChangeSet struct {
 	LengthBefore uint          `json:"lengthBefore"`

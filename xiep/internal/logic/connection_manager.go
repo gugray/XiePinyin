@@ -8,6 +8,14 @@ import (
 	"xiep/internal/common"
 )
 
+// Document juggler functionality related to edit sessions and processing changes over sockets.
+// Interface allows us to decouple connectionManager from documentJuggler
+type editSessionHandler interface {
+	startSession(sessionKey string) (startMsg string)
+	isSessionOpen(sessionKey string) bool
+	changeReceived(sessionKey string, clientRevisionId int, selStr, changeStr string) bool
+}
+
 type connectedPeer struct {
 	// Client's IP address
 	clientIP string
@@ -22,17 +30,17 @@ type connectedPeer struct {
 }
 
 type connectionManager struct {
-	xlog              common.XieLogger
-	documentJuggler   *documentJuggler
-	broadcast         chan changeToBroadcast
-	terminateSessions chan []string
-	peers             []*connectedPeer
-	mu                sync.Mutex
+	xlog               common.XieLogger
+	editSessionHandler editSessionHandler
+	broadcast          chan changeToBroadcast
+	terminateSessions  chan []string
+	peers              []*connectedPeer
+	mu                 sync.Mutex
 }
 
-func (cm *connectionManager) init(xlog common.XieLogger, documentJuggler *documentJuggler) {
+func (cm *connectionManager) init(xlog common.XieLogger, editSessionHandler editSessionHandler) {
 	cm.xlog = xlog
-	cm.documentJuggler = documentJuggler
+	cm.editSessionHandler = editSessionHandler
 	cm.broadcast = make(chan changeToBroadcast)
 	cm.terminateSessions = make(chan []string)
 }
@@ -42,6 +50,7 @@ func (cm *connectionManager) getListenerChannels() (broadcast chan<- changeToBro
 	return cm.broadcast, cm.terminateSessions
 }
 
+// Registers a new socket connection when it comes in.
 func (cm *connectionManager) NewConnection(clientIP string) (
 	receive func(msg *string),
 	send <-chan string,
@@ -88,7 +97,7 @@ func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 	}
 	if peerIx == -1 {
 		// Not on our list? Weird. Let's close it.
-		peer.closeConn<- "This peer is no longer on our list"
+		peer.closeConn <- "This peer is no longer on our list"
 		return
 	}
 	peer.lastActiveUtc = time.Now().UTC()
@@ -99,28 +108,28 @@ func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 	// Client announcing their session key as the first message
 	if strings.HasPrefix(msg, "SESSIONKEY ") {
 		if peer.sessionKey != "" {
-			peer.closeConn<- "Protocol violation: this client already sent its session key"
+			peer.closeConn <- "Protocol violation: this client already sent its session key"
 			return
 		}
 		sessionKey := msg[11:]
-		startMsg := cm.documentJuggler.StartSession(sessionKey)
+		startMsg := cm.editSessionHandler.startSession(sessionKey)
 		if startMsg == "" {
-			peer.closeConn<- "We are not expecting a session with the key."
+			peer.closeConn <- "We are not expecting a session with the key."
 			return
 		}
 		peer.sessionKey = sessionKey
-		peer.send<- "HELLO " + startMsg
+		peer.send <- "HELLO " + startMsg
 		return
 	}
 	// Anything else: client must be past sessionkey check
 	if peer.sessionKey == "" {
-		peer.closeConn<- "Don't talk until you've announced your session key"
+		peer.closeConn <- "Don't talk until you've announced your session key"
 		return
 	}
 	// Just a keepalive ping: see if session is still open?
 	if msg == "PING" {
-		if !cm.documentJuggler.IsSessionOpen(peer.sessionKey) {
-			peer.closeConn<- "This is not an open session"
+		if !cm.editSessionHandler.isSessionOpen(peer.sessionKey) {
+			peer.closeConn <- "This is not an open session"
 		}
 		return
 	}
@@ -132,25 +141,25 @@ func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 		}
 		ix2 := strings.Index(msg[ix1+1:], " ")
 		if ix2 != -1 {
-			ix2 += ix1+1
+			ix2 += ix1 + 1
 		} else {
 			ix2 = len(msg)
 		}
 		revId, err := strconv.Atoi(msg[7:ix1])
 		if err != nil {
-			peer.closeConn<- "Invalid message: failed to parse revision ID"
+			peer.closeConn <- "Invalid message: failed to parse revision ID"
 			return
 		}
-		selStr := msg[ix1+1:ix2]
+		selStr := msg[ix1+1 : ix2]
 		changeStr := ""
 		if ix2 != len(msg) {
 			changeStr = msg[ix2+1:]
 		}
-		if !cm.documentJuggler.ChangeReceived(peer.sessionKey, revId, selStr, changeStr) {
-			peer.closeConn<- "We don't like this change; your session might have expired, the doc may be gone, or the change may be invalid"
+		if !cm.editSessionHandler.changeReceived(peer.sessionKey, revId, selStr, changeStr) {
+			peer.closeConn <- "We don't like this change; your session might have expired, the doc may be gone, or the change may be invalid"
 		}
 		return
 	}
 	// Anything else: No.
-	peer.closeConn<- "You shouldn't have said that"
+	peer.closeConn <- "You shouldn't have said that"
 }

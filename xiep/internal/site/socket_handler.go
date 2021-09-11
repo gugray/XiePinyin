@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"net/http"
+	"xiep/internal/common"
 	"xiep/internal/logic"
 )
 
@@ -25,21 +26,37 @@ func handleSock(c *gin.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("websocket upgrade failed: %v", err))
 	}
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			xlog.Logf(common.LogSrcSocketHandler, "Error closing socket: %v", err)
+		}
+	}()
 
 	receive, send, closeConn := logic.TheApp.ConnectionManager.NewConnection(c.ClientIP())
 
 	// Spawn separate goroutine for listening
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				xlog.Logf(common.LogSrcSocketHandler, "Panic while processing message: %v", r)
+				conn.Close()
+			}
+		}()
 		for {
 			t, msg, err := conn.ReadMessage()
 			if err != nil {
-				// Log
+				if websocket.IsCloseError(err, 1000, 1001, 1005) {
+					xlog.Logf(common.LogSrcSocketHandler, "Socket closing with expected code: %v", err)
+				} else {
+					xlog.Logf(common.LogSrcSocketHandler, "Error reading from socket: %v", err)
+				}
+				// On any read error we indicate socket closure to connection manager
 				receive(nil)
 				break
 			}
 			if t != websocket.TextMessage {
-				// Log
+				xlog.Logf(common.LogSrcSocketHandler, "Received message type %v on socket; only text messages expected", t)
 				closeConn<- "Protocol violation: only text messages allowed"
 				break
 			}
@@ -51,12 +68,12 @@ func handleSock(c *gin.Context) {
 		select {
 		case msg := <-send:
 			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-				// Log
+				xlog.Logf(common.LogSrcSocketHandler, "Error writing to socket: %v", err)
+				break
 			}
-			break
 		case msg := <-closeConn:
 			if err := conn.WriteMessage(websocket.CloseMessage, []byte(msg)); err != nil {
-				// Log
+				xlog.Logf(common.LogSrcSocketHandler, "Error sending close message to socket: %v", err)
 			}
 			break
 		}

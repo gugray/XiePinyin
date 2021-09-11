@@ -16,10 +16,12 @@ import (
 )
 
 var xlog common.XieLogger
+var baseUrl string
+var baseDomain string
 
 // Initializes the server, sets up middlewares, handlers etc.
-func Init(r *gin.Engine, logger common.XieLogger) {
-	initInfra(r, logger)
+func InitServer(r *gin.Engine, logger common.XieLogger, config *common.Config) {
+	initInfra(r, logger, config)
 	initContent(r)
 	initHandlers(r)
 }
@@ -39,10 +41,7 @@ func initHandlers(r *gin.Engine) {
 	rDoc.POST("/create/", handleDocCreate)
 	rDoc.POST("/delete/", handleDocDelete)
 	// Websocket at /sock
-	r.GET("/sock/", handleSock)
-	// TODO: restore this when we're done playing in sandbox
-	//rSock := r.GET("/sock/", handleSock)
-	//rSock.Use(checkAuth)
+	r.GET("/sock/", handleSock).Use(checkAuth)
 }
 
 func initContent(r *gin.Engine) {
@@ -57,7 +56,7 @@ func initContent(r *gin.Engine) {
 	r.Use(static.Serve("/", static.LocalFile("./static", true)))
 }
 
-func initInfra(r *gin.Engine, logger common.XieLogger) {
+func initInfra(r *gin.Engine, logger common.XieLogger, config *common.Config) {
 
 	xlog = logger
 
@@ -82,6 +81,13 @@ func initInfra(r *gin.Engine, logger common.XieLogger) {
 		c.String(http.StatusInternalServerError, "internal server error")
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))
+
+	baseUrl = config.BaseUrl
+	if ix := strings.Index(baseUrl, ":"); ix == -1 {
+		baseDomain = baseUrl
+	} else {
+		baseDomain =baseUrl[:ix]
+	}
 }
 
 func appendTimestamp(p string) (string, error) {
@@ -128,7 +134,7 @@ func checkAuth(c *gin.Context) {
 		fail("cannot query-unescape cookie value")
 		return
 	}
-	var asc AuthSessionCookie
+	var asc authSessionCookie
 	if err := asc.UnmarshalJSON([]byte(cookieVal)); err != nil {
 		fail("cannot parse json in cookie")
 		return
@@ -150,7 +156,7 @@ func requireParam(c *gin.Context, paramName string, isPost bool) (val string, ok
 		val, ok = c.GetQuery(paramName)
 	}
 	if !ok {
-		c.String(http.StatusBadRequest, "Missing parameter: " + paramName)
+		c.String(http.StatusBadRequest, "Missing parameter: "+paramName)
 		return
 	}
 	return

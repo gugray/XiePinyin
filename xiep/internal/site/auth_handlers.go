@@ -11,17 +11,18 @@ import (
 	"xiep/internal/logic"
 )
 
-type AuthSessionCookie struct {
+type authSessionCookie struct {
 	ID         string
 	ExpiresUtc time.Time
 }
 
-func (asc *AuthSessionCookie) UnmarshalJSON(data []byte) error {
-	type Envelope struct {
+// Deserializes auth session cookie object from JSON
+func (asc *authSessionCookie) UnmarshalJSON(data []byte) error {
+	type envelope struct {
 		ID     string `json:"id"`
 		Expiry string `json:"expiry"`
 	}
-	var val Envelope
+	var val envelope
 	var err error
 	if err = json.Unmarshal(data, &val); err != nil {
 		return err
@@ -33,12 +34,13 @@ func (asc *AuthSessionCookie) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (asc *AuthSessionCookie) MarshalJSON() ([]byte, error) {
-	type Envelope struct {
+// Serializes auth session cookie object into JSON
+func (asc *authSessionCookie) MarshalJSON() ([]byte, error) {
+	type envelope struct {
 		ID     string `json:"id"`
 		Expiry string `json:"expiry"`
 	}
-	val := Envelope{
+	val := envelope{
 		ID:     asc.ID,
 		Expiry: asc.ExpiresUtc.Format(common.Iso8601Layout),
 	}
@@ -52,7 +54,7 @@ func handleAuthLogin(c *gin.Context) {
 		c.String(http.StatusBadRequest, "Missing parameter: secret")
 		return
 	}
-	var asc AuthSessionCookie
+	var asc authSessionCookie
 	asc.ID, asc.ExpiresUtc = logic.TheApp.ASM.Login(secret)
 	if len(asc.ID) == 0 {
 		c.String(http.StatusUnauthorized, "Bad secret")
@@ -72,7 +74,7 @@ func handleAuthLogin(c *gin.Context) {
 		Value:    url.QueryEscape(string(ascJson)),
 		MaxAge:   cookieDuration,
 		Path:     "/",
-		Domain:   common.Baseurl,
+		Domain:   baseDomain,
 		Secure:   false,
 		HttpOnly: false,
 		SameSite: http.SameSiteLaxMode,

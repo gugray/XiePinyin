@@ -49,7 +49,7 @@ func (asm *authSessionManager) Login(secret string) (sessionId string, expiryUtc
 			break
 		}
 	}
-	expiryUtc = time.Now().UTC().Add(common.SessionTimeoutMinutes * time.Minute)
+	expiryUtc = time.Now().UTC().Add(common.LoginTimeoutMinutes * time.Minute)
 	asm.sessions[sessionId] = expiryUtc
 	return
 }
@@ -68,7 +68,7 @@ func (asm *authSessionManager) Check(sessionId string) time.Time {
 			delete(asm.sessions, sessionId)
 			return time.Time{}
 		}
-		res := utcNow.Add(common.SessionTimeoutMinutes * time.Minute)
+		res := utcNow.Add(common.LoginTimeoutMinutes * time.Minute)
 		asm.sessions[sessionId] = res
 		return res
 	}
