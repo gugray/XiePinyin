@@ -1,4 +1,4 @@
-package logic
+package biscript
 
 import (
 	"encoding/json"
@@ -8,14 +8,21 @@ import (
 	"strings"
 )
 
-type XieCharIndex uint
+// Represents a single selected range in biscriptal text.
+type Selection struct {
+	Start        int  `json:"start"`
+	End          int  `json:"end"`
+	CaretAtStart bool `json:"caretAtStart"`
+}
 
+// Operational transformation representing a single edit.
 type ChangeSet struct {
 	LengthBefore uint          `json:"lengthBefore"`
 	LengthAfter  uint          `json:"lengthAfter"`
 	Items        []interface{} `json:"items"`
 }
 
+// Initializes a change set as an identity transformation.
 func (cs *ChangeSet) InitIdent(length uint) {
 	cs.LengthBefore = length
 	cs.LengthAfter = length
@@ -25,6 +32,7 @@ func (cs *ChangeSet) InitIdent(length uint) {
 	}
 }
 
+// Appends a range of kept characters to the change set under construction.
 func (cs *ChangeSet) appendKeptRange(first, last uint) {
 	if first > last {
 		panic("First index of kept range cannot be larger than last")
@@ -38,11 +46,13 @@ func (cs *ChangeSet) appendKeptRange(first, last uint) {
 	cs.LengthAfter = (uint)(len(cs.Items))
 }
 
+// Appends an inserted character to the change set under construction.
 func (cs *ChangeSet) appendXieChar(xc XieChar) {
 	cs.Items = append(cs.Items, xc)
 	cs.LengthAfter = (uint)(len(cs.Items))
 }
 
+// Serializes the change set into a diagnostic string.
 func (cs *ChangeSet) ToDiagStr() string {
 	var sb strings.Builder
 	sb.WriteString(strconv.FormatUint((uint64)(cs.LengthBefore), 10))
@@ -67,32 +77,33 @@ func (cs *ChangeSet) ToDiagStr() string {
 	return sb.String()
 }
 
-func (cs *ChangeSet) FromDiagStr(str string) error {
+// Initializes the change set from a  diagnostic string.
+func (cs *ChangeSet) FromDiagStr(str string) {
 	markIx := strings.IndexByte(str, '>')
 	if val, err := strconv.ParseUint(str[0:markIx], 10, 64); err != nil {
-		return err
+		return
 	} else {
 		cs.LengthBefore = (uint)(val)
 	}
 	cs.LengthAfter = 0
 	cs.Items = make([]interface{}, 0)
 	if markIx == len(str)-1 {
-		return nil
+		return
 	}
 	parts := strings.Split(str[markIx+1:], ",")
 	for _, part := range parts {
 		if val, err := strconv.ParseUint(part, 10, 64); err == nil {
 			if (uint)(val+1) > cs.LengthBefore {
-				return errors.New("kept index beyond LengthBefore")
+				panic("kept index beyond LengthBefore")
 			}
 			cs.appendKeptRange((uint)(val), (uint)(val))
 		} else {
 			cs.appendXieChar(XieChar{Hanzi: part})
 		}
 	}
-	return nil
 }
 
+// Verifies that the change set is valid.
 func (cs *ChangeSet) IsValid() bool {
 	if cs.LengthAfter != (uint)(len(cs.Items)) {
 		return false
@@ -117,6 +128,7 @@ func (cs *ChangeSet) IsValid() bool {
 	return true
 }
 
+// Serializes the change set into JSON.
 func (cs *ChangeSet) SerializeJSON() string {
 	res, err := json.Marshal(cs)
 	if err != nil {
@@ -125,6 +137,7 @@ func (cs *ChangeSet) SerializeJSON() string {
 	return string(res)
 }
 
+// Parses a change set from JSON.
 func (cs *ChangeSet) DeserializeJSON(jsonStr string) error {
 	type ChangeSetEnvelope struct {
 		LengthBefore uint              `json:"lengthBefore"`
@@ -158,6 +171,7 @@ func (cs *ChangeSet) DeserializeJSON(jsonStr string) error {
 	return nil
 }
 
+// Applies the change set to a biscriptal text.
 func (cs *ChangeSet) Apply(text []XieChar) []XieChar {
 	if cs.LengthBefore != (uint)(len(text)) {
 		panic("Change set's LengthBefore must match text's length")
@@ -173,6 +187,7 @@ func (cs *ChangeSet) Apply(text []XieChar) []XieChar {
 	return res
 }
 
+// Forwards character positions to the values after applying the change set.
 func (cs *ChangeSet) ForwardPositions(poss []uint) {
 	pp := make([]int, 0, len(poss))
 	for _, x := range poss {
@@ -205,12 +220,13 @@ func (cs *ChangeSet) ForwardPositions(poss []uint) {
 	}
 }
 
-func (a *ChangeSet) Compose(b *ChangeSet) *ChangeSet {
-	if a.LengthAfter != b.LengthBefore {
+// Creates a change set that is equivalent to the current one, followed by "b".
+func (cs *ChangeSet) Compose(b *ChangeSet) *ChangeSet {
+	if cs.LengthAfter != b.LengthBefore {
 		panic("LengthAfter of LHS must equal LengthBefore of RHS")
 	}
 	var res ChangeSet
-	res.LengthBefore = a.LengthBefore
+	res.LengthBefore = cs.LengthBefore
 	res.LengthAfter = b.LengthAfter
 	res.Items = make([]interface{}, 0, res.LengthAfter)
 	for _, bItm := range b.Items {
@@ -218,22 +234,23 @@ func (a *ChangeSet) Compose(b *ChangeSet) *ChangeSet {
 			res.Items = append(res.Items, xc)
 		} else {
 			ix := bItm.(uint)
-			res.Items = append(res.Items, a.Items[ix])
+			res.Items = append(res.Items, cs.Items[ix])
 		}
 	}
 	return &res
 }
 
-func (a *ChangeSet) Merge(b *ChangeSet) *ChangeSet {
-	if a.LengthBefore != b.LengthBefore {
+// Merges this change set with "b".
+func (cs *ChangeSet) Merge(b *ChangeSet) *ChangeSet {
+	if cs.LengthBefore != b.LengthBefore {
 		panic("change sets must have same LengthBefore")
 	}
 	var res ChangeSet
-	res.LengthBefore = a.LengthBefore
+	res.LengthBefore = cs.LengthBefore
 	ixa := 0
 	ixb := 0
-	for ; ixa < len(a.Items) || ixb < len(b.Items); {
-		if ixa == len(a.Items) {
+	for ; ixa < len(cs.Items) || ixb < len(b.Items); {
+		if ixa == len(cs.Items) {
 			if _, ok := b.Items[ixb].(XieChar); ok {
 				res.Items = append(res.Items, b.Items[ixb])
 			}
@@ -241,18 +258,18 @@ func (a *ChangeSet) Merge(b *ChangeSet) *ChangeSet {
 			continue
 		}
 		if ixb == len(b.Items) {
-			if _, ok := a.Items[ixa].(XieChar); ok {
-				res.Items = append(res.Items, a.Items[ixa])
+			if _, ok := cs.Items[ixa].(XieChar); ok {
+				res.Items = append(res.Items, cs.Items[ixa])
 			}
 			ixa++
 			continue
 		}
 		// We got stuff in both
-		ca, aIsChar := a.Items[ixa].(XieChar)
+		ca, aIsChar := cs.Items[ixa].(XieChar)
 		cb, bIsChar := b.Items[ixb].(XieChar)
 		// Both are kept characters: sync up position, and keep what's kept in both
 		if !aIsChar && !bIsChar {
-			vala := a.Items[ixa].(uint)
+			vala := cs.Items[ixa].(uint)
 			valb := b.Items[ixb].(uint)
 			if vala == valb {
 				res.Items = append(res.Items, vala)
@@ -291,17 +308,17 @@ func (a *ChangeSet) Merge(b *ChangeSet) *ChangeSet {
 	return &res
 }
 
-
-func (a *ChangeSet) Follow(b *ChangeSet) *ChangeSet {
-	if a.LengthBefore != b.LengthBefore {
+// Follows this change set with "b".
+func (cs *ChangeSet) Follow(b *ChangeSet) *ChangeSet {
+	if cs.LengthBefore != b.LengthBefore {
 		panic("change sets must have same LengthBefore")
 	}
 	var res ChangeSet
-	res.LengthBefore = a.LengthAfter
+	res.LengthBefore = cs.LengthAfter
 	ixa := 0
 	ixb := 0
-	for ; ixa < len(a.Items) || ixb < len(b.Items); {
-		if ixa == len(a.Items) {
+	for ; ixa < len(cs.Items) || ixb < len(b.Items); {
+		if ixa == len(cs.Items) {
 			// Insertions in B become insertions
 			if _, ok := b.Items[ixb].(XieChar); ok {
 				res.Items = append(res.Items, b.Items[ixb])
@@ -311,18 +328,18 @@ func (a *ChangeSet) Follow(b *ChangeSet) *ChangeSet {
 		}
 		if ixb == len(b.Items) {
 			// Insertions in A become retained characters
-			if _, ok := a.Items[ixa].(XieChar); ok {
+			if _, ok := cs.Items[ixa].(XieChar); ok {
 				res.Items = append(res.Items, uint(ixa))
 			}
 			ixa++
 			continue
 		}
 		// We got stuff in both
-		_, aIsChar := a.Items[ixa].(XieChar)
+		_, aIsChar := cs.Items[ixa].(XieChar)
 		_, bIsChar := b.Items[ixb].(XieChar)
 		// Both are kept characters: sync up position, and keep what's kept in both
 		if !aIsChar && !bIsChar {
-			vala := a.Items[ixa].(uint)
+			vala := cs.Items[ixa].(uint)
 			valb := b.Items[ixb].(uint)
 			if vala == valb {
 				res.Items = append(res.Items, uint(ixa))

@@ -41,10 +41,10 @@ func (asm *authSessionManager) Login(secret string) (sessionId string, expiryUtc
 	}
 	asm.mu.Lock()
 	defer asm.mu.Unlock()
-	sessionId = GetShortId()
+	sessionId = getShortId()
 	for {
 		if _, ok := asm.sessions[sessionId]; ok {
-			sessionId = GetShortId()
+			sessionId = getShortId()
 		} else {
 			break
 		}

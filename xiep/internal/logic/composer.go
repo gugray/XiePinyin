@@ -11,27 +11,27 @@ import (
 )
 
 type charReading struct {
-	Hanzi	string `json:"hanzi"`
-	Pinyin	string `json:"pinyin"`
+	Hanzi  string `json:"hanzi"`
+	Pinyin string `json:"pinyin"`
 }
 
-type Composer struct {
-	pinyin *Pinyin
+type composer struct {
+	pinyin       *pinyin
 	readingsSimp []charReading
 	readingsTrad []charReading
 }
 
-func LoadComposerFromFiles(dataDir string) *Composer {
-	var res Composer
-	res.pinyin = LoadPinyin()
+func loadComposerFromFiles(dataDir string) *composer {
+	var res composer
+	res.pinyin = loadPinyin()
 	res.readingsSimp = loadCharReadings(path.Join(dataDir, "simp-map.json"))
 	res.readingsTrad = loadCharReadings(path.Join(dataDir, "trad-map.json"))
 	return &res
 }
 
-func LoadComposerFromString(simpJson, tradJson string) *Composer {
-	var res Composer
-	res.pinyin = LoadPinyin()
+func loadComposerFromString(simpJson, tradJson string) *composer {
+	var res composer
+	res.pinyin = loadPinyin()
 	if e := json.Unmarshal([]byte(simpJson), &res.readingsSimp); e != nil {
 		panic(fmt.Sprintf("Error parsing Json: %v", e))
 	}
@@ -46,6 +46,7 @@ func loadCharReadings(fnJson string) []charReading {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open file: %v", fnJson))
 	}
+	//goland:noinspection GoUnhandledErrorResult
 	defer f.Close()
 	data, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -58,22 +59,22 @@ func loadCharReadings(fnJson string) []charReading {
 	return res
 }
 
-func (cp *Composer) Resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, readings [][]string) {
+func (cp *composer) resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, readings [][]string) {
 	readings = make([][]string, 0)
-	charReadings :=  cp.readingsTrad
+	charReadings := cp.readingsTrad
 	if isSimp {
 		charReadings = cp.readingsSimp
 	}
 	pinyinInputLo := strings.ToLower(pinyinInput)
-	loSylls := cp.pinyin.SplitSyllables(pinyinInputLo)
+	loSylls := cp.pinyin.splitSyllables(pinyinInputLo)
 	loSyllsConcat := ""
-	for i, syll := range(loSylls) {
+	for i, syll := range loSylls {
 		if i != 0 {
 			loSyllsConcat += " "
 		}
 		loSyllsConcat += syll
 	}
-	for _, r := range(charReadings) {
+	for _, r := range charReadings {
 		if r.Pinyin != loSyllsConcat {
 			continue
 		}
@@ -88,20 +89,20 @@ func (cp *Composer) Resolve(pinyinInput string, isSimp bool) (pinyinSylls []stri
 func getOrigSylls(orig string, lo string, loSylls []string) (origSylls []string) {
 	origSylls = make([]string, 0, len(loSylls))
 	ix := 0
-	for _, loSyll := range(loSylls) {
+	for _, loSyll := range loSylls {
 		ix += strings.Index(lo[ix:], loSyll)
-		origSyll := orig[ix:ix + len(loSyll)]
+		origSyll := orig[ix : ix+len(loSyll)]
 		origSylls = append(origSylls, origSyll)
 	}
 	return
 }
 
-func (cp *Composer) PinyinNumsToSurf(pyNums string) string {
+func (cp *composer) pinyinNumsToSurf(pyNums string) string {
 	pyNumsLo := strings.ToLower(pyNums)
-	loSylls := cp.pinyin.SplitSyllables(pyNumsLo)
+	loSylls := cp.pinyin.splitSyllables(pyNumsLo)
 	var loSyllsPretty = make([]string, 0)
-	for _, ls := range(loSylls) {
-		pretty := cp.pinyin.NumToSurf(ls)
+	for _, ls := range loSylls {
+		pretty := cp.pinyin.numToSurf(ls)
 		if pretty == "" {
 			pretty = ls
 		}
@@ -109,14 +110,14 @@ func (cp *Composer) PinyinNumsToSurf(pyNums string) string {
 	}
 	origSylls := getOrigSylls(pyNums, pyNumsLo, loSylls)
 	var sb strings.Builder
-	for i, loSyllPretty := range(loSyllsPretty) {
+	for i, loSyllPretty := range loSyllsPretty {
 		// Original was lower case
 		if loSylls[i] == origSylls[i] {
 			sb.WriteString(loSyllPretty)
 			continue
 		}
 		// Make first letter upper case, copy rest as is
-		for j, chr := range(loSyllPretty) {
+		for j, chr := range loSyllPretty {
 			if j == 0 {
 				sb.WriteRune(unicode.ToUpper(chr))
 			} else {

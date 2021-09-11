@@ -5,7 +5,7 @@ import (
 )
 
 func TestComposerLoadFull(t *testing.T) {
-	LoadComposerFromFiles("../../web/static/")
+	loadComposerFromFiles("../../web/static/")
 }
 
 func TestComposerPinyinNumsToSurf(t *testing.T) {
@@ -16,9 +16,9 @@ func TestComposerPinyinNumsToSurf(t *testing.T) {
 		//{"wei4r", "wèir"}, // TODO
 		//{"da2an4", "dá'àn"}, // TODO
 	}
-	c := LoadComposerFromString(simpMapJson, tradMapJson)
+	c := loadComposerFromString(simpMapJson, tradMapJson)
 	for _, val := range(vals) {
-		surf := c.PinyinNumsToSurf(val[0])
+		surf := c.pinyinNumsToSurf(val[0])
 		if surf != val[1] {
 			t.Errorf("Wrong surface form for %v: exected %v, got %v", val[0], val[1], surf)
 		}
@@ -38,9 +38,9 @@ func TestComposerResolve(t *testing.T) {
 		{"shu1zi", true, []string {"shu1", "zi"}, []string {"叔 子", "梳 子"}},
 		{"Shu1zi", true, []string {"Shu1", "zi"}, []string {"叔 子", "梳 子"}},
 	}
-	c := LoadComposerFromString(simpMapJson, tradMapJson)
+	c := loadComposerFromString(simpMapJson, tradMapJson)
 	for _, val := range(vals) {
-		sylls, readings := c.Resolve(val.Pinyin, val.IsSimp)
+		sylls, readings := c.resolve(val.Pinyin, val.IsSimp)
 		if len(readings) != len(val.Readings) {
 			t.Errorf("Wrong number of readings for %v", val.Pinyin)
 			continue

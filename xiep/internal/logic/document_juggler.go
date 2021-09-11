@@ -6,6 +6,7 @@ import (
 	"path"
 	"sync"
 	"time"
+	"xiep/internal/biscript"
 	"xiep/internal/common"
 )
 
@@ -28,20 +29,20 @@ type editSession struct {
 	// Time the session was requested. Changes to zero time once session has started.
 	RequestedUtc time.Time
 	// This editor's selection, as it applies to the current head text.
-	Selection Selection
+	Selection biscript.Selection
 }
 
 type sessionStartMessage struct {
 	Name           string      `json:"name"`
-	RevisionId     int         `json:"revisionId"`
-	Text           []XieChar   `json:"text"`
-	PeerSelections []Selection `json:"peerSelections"`
+	RevisionId     int                  `json:"revisionId"`
+	Text           []biscript.XieChar   `json:"text"`
+	PeerSelections []biscript.Selection `json:"peerSelections"`
 }
 
 type documentJuggler struct {
 	xlog              common.XieLogger
 	mu                sync.Mutex
-	composer          *Composer
+	composer          *composer
 	docsFolder        string
 	exportsFolder     string
 	sessions          []*editSession
@@ -52,7 +53,7 @@ type documentJuggler struct {
 }
 
 func (dj *documentJuggler) init(xlog common.XieLogger,
-	composer *Composer,
+	composer *composer,
 	docsFolder string,
 	exportsFolder string,
 ) {
@@ -112,7 +113,7 @@ func (dj *documentJuggler) CreateDocument(name string) (docId string, err error)
 	err = nil
 	var docFileName string
 	for {
-		docId = GetShortId()
+		docId = getShortId()
 		if ix := dj.getDocIx(docId); ix != -1 {
 			continue
 		}
@@ -197,7 +198,7 @@ func (dj *documentJuggler) RequestSession(docId string) (sessionKey string) {
 		return ""
 	}
 	for {
-		sessionKey = "S-" + GetShortId()
+		sessionKey = "S-" + getShortId()
 		if ix := dj.getSessionIx(sessionKey); ix == -1 {
 			break
 		}
@@ -213,8 +214,8 @@ func (dj *documentJuggler) RequestSession(docId string) (sessionKey string) {
 	return sessionKey
 }
 
-func (dj *documentJuggler) getDocSelections(docId string) []Selection {
-	res := make([]Selection, 0, 1)
+func (dj *documentJuggler) getDocSelections(docId string) []biscript.Selection {
+	res := make([]biscript.Selection, 0, 1)
 	// TODO: Implemnt
 	return res
 }
@@ -244,7 +245,7 @@ func (dj *documentJuggler) StartSession(sessionKey string) (startMsg string) {
 		PeerSelections: dj.getDocSelections(doc.DocId),
 	}
 	sess.RequestedUtc = time.Time{}
-	sess.Selection = Selection{}
+	sess.Selection = biscript.Selection{}
 	if startStrBytes, err := json.Marshal(&ssm); err == nil {
 		startMsg = string(startStrBytes)
 	}

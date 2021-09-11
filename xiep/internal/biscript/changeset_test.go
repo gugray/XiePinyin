@@ -1,4 +1,4 @@
-package logic
+package biscript
 
 import (
 	"testing"
@@ -21,10 +21,7 @@ func TestChangeSet_ToDiagStr(t *testing.T) {
 func TestChangeSet_FromDiagStr(t *testing.T) {
 	var cs ChangeSet
 	dstr := "13>0,X,5,6,Z"
-	err := cs.FromDiagStr(dstr)
-	if err != nil {
-		t.Errorf("Failed to parse diag string: %v", dstr)
-	}
+	cs.FromDiagStr(dstr)
 	ok := true
 	ok = ok && cs.LengthBefore == 13
 	ok = ok && len(cs.Items) == 5
@@ -48,8 +45,8 @@ func TestChangeSet_IsValid(t *testing.T) {
 	}
 	for _, val := range vals {
 		var cs ChangeSet
-		err := cs.FromDiagStr(val)
-		if err == nil && cs.IsValid() {
+		cs.FromDiagStr(val)
+		if cs.IsValid() {
 			t.Errorf("Failed to detect invalid change set: %v", val)
 		}
 	}

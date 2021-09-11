@@ -10,16 +10,16 @@ func TestPinyinParseInputLine(t *testing.T) {
 		"ba\tba\tbā\tbá\tbǎ\tbà",
 		"bang\tbang\tbāng\tbáng\tbǎng\tbàng",
 	}
-	var p Pinyin
+	var p pinyin
 	p.init()
 	p.parseInputLine(lines[0])
 	p.parseInputLine(lines[1])
 	ok := true
-	ok = ok && p.numToSurf["an4"] == "àn"
-	ok = ok && p.numToSurf["ba3"] == "bǎ"
-	ok = ok && p.numToSurf["an2"] == "án"
-	ok = ok && p.numToSurf["ba1"] == "bā"
-	ok = ok && p.numToSurf["an"] == "an"
+	ok = ok && p.num2SurfMap["an4"] == "àn"
+	ok = ok && p.num2SurfMap["ba3"] == "bǎ"
+	ok = ok && p.num2SurfMap["an2"] == "án"
+	ok = ok && p.num2SurfMap["ba1"] == "bā"
+	ok = ok && p.num2SurfMap["an"] == "an"
 	if !ok {
 		t.Errorf("pinyin map failed to parse input correctly")
 	}
@@ -35,16 +35,16 @@ func TestPinyinSurfNum(t *testing.T) {
 		{"xyz", ""},
 		{"", "jāi"},
 	}
-	p := LoadPinyin()
+	p := loadPinyin()
 	for _, val := range vals {
 		if len(val.num) != 0 {
-			if gotSurf := p.NumToSurf(val.num); gotSurf != val.surf {
-				t.Errorf("failed NumToSurf for %v: got %v, expected %v", val.num, gotSurf, val.surf)
+			if gotSurf := p.numToSurf(val.num); gotSurf != val.surf {
+				t.Errorf("failed numToSurf for %v: got %v, expected %v", val.num, gotSurf, val.surf)
 			}
 		}
 		if len(val.surf) != 0 {
-			if gotNum := p.SurfToNum(val.surf); gotNum != val.num {
-				t.Errorf("failed SurfToNum for %v: got %v, expected %v", val.surf, gotNum, val.num)
+			if gotNum := p.surfToNum(val.surf); gotNum != val.num {
+				t.Errorf("failed surfToNum for %v: got %v, expected %v", val.surf, gotNum, val.num)
 			}
 		}
 	}
@@ -73,9 +73,9 @@ func TestPinyinSplitBySyllables(t *testing.T) {
 		{word: "da2an4", sylls: []string{"da2", "an4"}},
 		{word: "di4-yi1", sylls: []string{"di4", "-", "yi1"}},
 	}
-	p := LoadPinyin()
+	p := loadPinyin()
 	for _, val := range vals {
-		res := p.SplitSyllables(val.word)
+		res := p.splitSyllables(val.word)
 		if !checkSlicesEqual(res, val.sylls) {
 			t.Errorf("wrong split for %v: got %v, expected %v", val.word, res, val.sylls)
 		}

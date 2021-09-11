@@ -4,26 +4,27 @@ import (
 	"encoding/json"
 	"os"
 	"time"
+	"xiep/internal/biscript"
 )
 
 type Document struct {
 	DocId string `json:"docId"`
-	Name string `json:"name"`
-	StartText []XieChar  `json:"startText"`
+	Name string                  `json:"name"`
+	StartText []biscript.XieChar `json:"startText"`
 	//Revisions []Revision `json:"-"`
-	HeadText[]XieChar `json:"-"`
-	Dirty bool `json:"-"`
+	HeadText[]biscript.XieChar `json:"-"`
+	Dirty bool                 `json:"-"`
 	LastAccessedUtc time.Time `json:"-"`
 }
 
-func (doc *Document) Init(docId string, name string, startText []XieChar) {
+func (doc *Document) Init(docId string, name string, startText []biscript.XieChar) {
 	doc.DocId = docId;
 	doc.Name = name;
 	doc.StartText = startText;
 	if doc.StartText == nil {
-		doc.StartText = make([]XieChar, 0)
+		doc.StartText = make([]biscript.XieChar, 0)
 	}
-	doc.HeadText = make([]XieChar, 0)
+	doc.HeadText = make([]biscript.XieChar, 0)
 	doc.LastAccessedUtc = time.Now().UTC()
 	// TODO: Revisions
 	// Revisions.Add(new Revision(ChangeSet.CreateIdent(StartText.Length)));
@@ -38,7 +39,7 @@ func (doc *Document) LoadFromFile(fileName string) error {
 		}
 	}
 	doc.LastAccessedUtc = time.Now().UTC()
-	doc.HeadText = make([]XieChar, len(doc.StartText))
+	doc.HeadText = make([]biscript.XieChar, len(doc.StartText))
 	for i, xc := range doc.StartText {
 		doc.HeadText[i] = xc
 	}

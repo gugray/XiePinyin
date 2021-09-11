@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-var idCounter uint32 = (uint32)(time.Now().Unix())
+var idCounter = (uint32)(time.Now().Unix())
 
-func GetShortId() string {
+func getShortId() string {
 	val := atomic.AddUint32(&idCounter, 1)
 	buf := [4]byte{
 		(byte)(val & 0xff),

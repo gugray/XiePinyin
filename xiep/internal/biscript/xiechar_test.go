@@ -1,4 +1,4 @@
-package logic
+package biscript
 
 import (
 	"encoding/json"

@@ -10,7 +10,7 @@ var TheApp xieApp
 
 type xieApp struct {
 	ASM               authSessionManager
-	Composer          *Composer
+	Composer          *composer
 	DocumentJuggler   documentJuggler
 	ConnectionManager connectionManager
 }
@@ -19,7 +19,7 @@ type xieApp struct {
 func InitTheApp(config *common.Config, xlog common.XieLogger) {
 
 	TheApp.ASM.init(config.SecretsFile, xlog)
-	TheApp.Composer = LoadComposerFromFiles("./static")
+	TheApp.Composer = loadComposerFromFiles("./static")
 	TheApp.DocumentJuggler.init(xlog, TheApp.Composer, config.DocsFolder, config.ExportsFolder)
 	TheApp.ConnectionManager.init(xlog, &TheApp.DocumentJuggler)
 
