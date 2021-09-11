@@ -32,5 +32,6 @@ func InitTheApp(config *common.Config, xlog common.XieLogger) {
 // Tells long-running background tasks to stop and clean up.
 func (app *xieApp) Shutdown() {
 	app.DocumentJuggler.shutdown()
+	app.ConnectionManager.shutdown()
 	time.Sleep(200 * time.Millisecond)
 }

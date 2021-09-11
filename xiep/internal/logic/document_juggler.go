@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -21,22 +22,27 @@ const (
 // Represents the current selection in one active session.
 type sessionSelection struct {
 	SessionKey   string `json:"sessionKey"`
-	Start        int    `json:"start"`
-	End          int    `json:"end"`
+	Start        uint   `json:"start"`
+	End          uint   `json:"end"`
 	CaretAtStart bool   `json:"caretAtStart"`
 }
 
+// Represents one currently active edit session. Belongs to a client connected over an open socket.
 type editSession struct {
 	// Session's short random key
-	SessionKey string
+	sessionKey string
+
 	// ID of document the session is editing
-	DocId string
+	docId string
+
 	// Last communication from the session (either change or ping)
-	LastActiveUtc time.Time
+	lastActiveUtc time.Time
+
 	// Time the session was requested. Changes to zero time once session has started.
-	RequestedUtc time.Time
+	requestedUtc time.Time
+
 	// This editor's selection, as it applies to the current head text.
-	Selection *sessionSelection
+	selection *sessionSelection
 }
 
 type sessionStartMessage struct {
@@ -48,15 +54,16 @@ type sessionStartMessage struct {
 
 type documentJuggler struct {
 	xlog              common.XieLogger
-	mu                sync.Mutex
 	composer          *composer
 	docsFolder        string
 	exportsFolder     string
-	sessions          []*editSession
-	docs              []*Document
 	exit              chan interface{}
-	broadcast         chan<- changeToBroadcast
-	terminateSessions chan<- []string
+	broadcast         chan<- *changeToBroadcast
+	terminateSessions chan<- map[string]bool
+
+	mu       sync.Mutex
+	docs     []*document
+	sessions []*editSession
 }
 
 func (dj *documentJuggler) init(xlog common.XieLogger,
@@ -80,10 +87,12 @@ func (dj *documentJuggler) shutdown() {
 func (dj *documentJuggler) housekeep() {
 	ticker := time.NewTicker(docJugHousekeepPeriodSec * time.Second)
 	safeExec := func(f func()) {
+		defer func() {
+			if r := recover(); r != nil {
+				dj.xlog.Logf(common.LogSrcDocJug, "Panic in housekeeping goroutine: %v", r)
+			}
+		}()
 		f()
-		if r := recover(); r != nil {
-			dj.xlog.Logf(common.LogSrcDocJug, "Panic in housekeeping function: %v", r)
-		}
 	}
 	for {
 		select {
@@ -101,7 +110,7 @@ func (dj *documentJuggler) housekeep() {
 }
 
 // Saves dirty docs and unloads inactive docs.
-// Thread-safe.
+// Thread-safe; invoked from housekeep goroutine.
 func (dj *documentJuggler) housekeepDocs() {
 	// We break out of closure within loop after each document save
 	// This way we release and re-acquire lock, so that other requests can be served between long-ish blocking IO writes
@@ -113,21 +122,21 @@ func (dj *documentJuggler) housekeepDocs() {
 			// Remove docs that have been inactive for long
 			// Also remember a dirty document if we see one
 			i := 0
-			var dirtyDoc *Document
+			var dirtyDoc *document
 			for _, doc := range dj.docs {
-				hasExpired := time.Now().UTC().Sub(doc.LastAccessedUtc).Seconds() > docJugUnloadAfterSeconds
+				hasExpired := time.Now().UTC().Sub(doc.lastAccessedUtc).Seconds() > docJugUnloadAfterSeconds
 				if !hasExpired {
 					dj.docs[i] = doc
 					i++
 				}
-				if doc.Dirty {
+				if doc.dirty {
 					dirtyDoc = doc
 				}
 			}
 			dj.docs = dj.docs[:i]
 			// Save the last dirty document that we found
 			if dirtyDoc != nil {
-				if err := dirtyDoc.SaveToFile(dj.getDocFileName(dirtyDoc.DocId)); err != nil {
+				if err := dirtyDoc.saveToFile(dj.getDocFileName(dirtyDoc.DocId)); err != nil {
 					dj.xlog.Logf(common.LogSrcDocJug, "Error saving dirty document %v: %v", dirtyDoc.DocId, err)
 				}
 			}
@@ -138,24 +147,25 @@ func (dj *documentJuggler) housekeepDocs() {
 }
 
 // Unloads inactive and unclaimed sessions; terminates what must be closed.
-// Thread-safe.
+// Thread-safe; invoked from housekeep goroutine.
 func (dj *documentJuggler) cleanupSessions() {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
-	var toTerminate []string // Keys of sessions to terminate
+	// Keys of sessions to terminate
+	toTerminate := make(map[string]bool)
 	i := 0
 	for _, sess := range dj.sessions {
 		unload := false
 		// Requested too long ago, and not claimed yet
-		if !sess.RequestedUtc.IsZero() &&
-			time.Now().UTC().Sub(sess.RequestedUtc).Seconds() > docJugSessionRequestExpirySeconds {
+		if !sess.requestedUtc.IsZero() &&
+			time.Now().UTC().Sub(sess.requestedUtc).Seconds() > docJugSessionRequestExpirySeconds {
 			unload = true
 		}
 		// Inactive for too long
-		if time.Now().UTC().Sub(sess.LastActiveUtc).Seconds() > docJugSessionIdleEndSeconds {
+		if time.Now().UTC().Sub(sess.lastActiveUtc).Seconds() > docJugSessionIdleEndSeconds {
 			unload = true
-			toTerminate = append(toTerminate, sess.SessionKey)
+			toTerminate[sess.sessionKey] = true
 		}
 		if !unload {
 			dj.sessions[i] = sess
@@ -187,7 +197,7 @@ func (dj *documentJuggler) getDocIx(docId string) int {
 // Must be called from within lock.
 func (dj *documentJuggler) getSessionIx(sessionKey string) int {
 	for ix, sess := range dj.sessions {
-		if sess.SessionKey == sessionKey {
+		if sess.sessionKey == sessionKey {
 			return ix
 		}
 	}
@@ -214,9 +224,9 @@ func (dj *documentJuggler) CreateDocument(name string) (docId string, err error)
 		}
 		break
 	}
-	var doc Document
-	doc.Init(docId, name, nil)
-	if err = doc.SaveToFile(docFileName); err != nil {
+	var doc document
+	doc.init(docId, name, nil)
+	if err = doc.saveToFile(docFileName); err != nil {
 		return
 	}
 	dj.docs = append(dj.docs, &doc)
@@ -241,7 +251,7 @@ func (dj *documentJuggler) DeleteDocument(docId string) {
 	// Remove any related sessions
 	i := 0
 	for _, sess := range dj.sessions {
-		if sess.DocId != docId {
+		if sess.docId != docId {
 			dj.sessions[i] = sess
 			i++
 		}
@@ -252,7 +262,7 @@ func (dj *documentJuggler) DeleteDocument(docId string) {
 	// Try to delete if file seems to exist
 	if _, err := os.Stat(docFileName); err != nil {
 		// File does not exist: log it, but life can go on
-		dj.xlog.Logf(common.LogSrcDocJug, "Document on disk does not seem to exist (no big deal): %v", err)
+		dj.xlog.Logf(common.LogSrcDocJug, "document on disk does not seem to exist (no big deal): %v", err)
 	} else {
 		// File exists: get rid of it
 		if err := os.Remove(docFileName); err != nil {
@@ -271,8 +281,8 @@ func (dj *documentJuggler) ensureLoaded(docId string) {
 		return
 	}
 	docFileName := dj.getDocFileName(docId)
-	var doc Document
-	if err := doc.LoadFromFile(docFileName); err != nil {
+	var doc document
+	if err := doc.loadFromFile(docFileName); err != nil {
 		dj.xlog.Logf(common.LogSrcDocJug, "Failed to load document from file: %v", err)
 		return
 	}
@@ -298,10 +308,10 @@ func (dj *documentJuggler) RequestSession(docId string) (sessionKey string) {
 		}
 	}
 	sess := editSession{
-		DocId:         docId,
-		SessionKey:    sessionKey,
-		LastActiveUtc: time.Now().UTC(),
-		RequestedUtc:  time.Now().UTC(),
+		docId:         docId,
+		sessionKey:    sessionKey,
+		lastActiveUtc: time.Now().UTC(),
+		requestedUtc:  time.Now().UTC(),
 	}
 	dj.sessions = append(dj.sessions, &sess)
 
@@ -313,17 +323,28 @@ func (dj *documentJuggler) RequestSession(docId string) (sessionKey string) {
 func (dj *documentJuggler) getDocSelections(docId string) []sessionSelection {
 	res := make([]sessionSelection, 0, 1)
 	for _, sess := range dj.sessions {
-		if sess.DocId != docId || sess.Selection == nil {
+		if sess.docId != docId || sess.selection == nil {
 			continue
 		}
 		res = append(res, sessionSelection{
-			SessionKey: sess.SessionKey,
-			Start: sess.Selection.Start,
-			End: sess.Selection.End,
-			CaretAtStart: sess.Selection.CaretAtStart,
+			SessionKey:   sess.sessionKey,
+			Start:        sess.selection.Start,
+			End:          sess.selection.End,
+			CaretAtStart: sess.selection.CaretAtStart,
 		})
 	}
 	return res
+}
+
+// Retrieves currently known selections in all active sessions and returns result serialized into JSON.
+// Must be called from within lock.
+func (dj *documentJuggler) getDocSelectionsJSON(docId string) string {
+	sessionSelections := dj.getDocSelections(docId)
+	selJson, err := json.Marshal(&sessionSelections)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to serialize session selections to JSON: %v", err))
+	}
+	return string(selJson)
 }
 
 // Starts a new session in response to SESSIONKEY message from socket client
@@ -338,22 +359,22 @@ func (dj *documentJuggler) startSession(sessionKey string) (startMsg string) {
 		return
 	}
 	sess := dj.sessions[sessionIx]
-	if sess.RequestedUtc.IsZero() {
+	if sess.requestedUtc.IsZero() {
 		return
 	}
-	docIx := dj.getDocIx(sess.DocId)
+	docIx := dj.getDocIx(sess.docId)
 	if docIx == -1 {
 		return
 	}
 	doc := dj.docs[docIx]
 	ssm := sessionStartMessage{
 		Name:           doc.Name,
-		RevisionId:     0, // TODO: len(doc.Revisions) - 1
-		Text:           doc.HeadText,
+		RevisionId:     len(doc.revisions) - 1,
+		Text:           doc.headText,
 		PeerSelections: dj.getDocSelections(doc.DocId),
 	}
-	sess.RequestedUtc = time.Time{}
-	sess.Selection = &sessionSelection{}
+	sess.requestedUtc = time.Time{}
+	sess.selection = &sessionSelection{}
 	if startStrBytes, err := json.Marshal(&ssm); err == nil {
 		startMsg = string(startStrBytes)
 	}
@@ -367,7 +388,23 @@ func (dj *documentJuggler) isSessionOpen(sessionKey string) bool {
 	defer dj.mu.Unlock()
 
 	sessionIx := dj.getSessionIx(sessionKey)
-	return sessionIx != -1 && dj.sessions[sessionIx].RequestedUtc.IsZero()
+	return sessionIx != -1 && dj.sessions[sessionIx].requestedUtc.IsZero()
+}
+
+// Removes session with the provided key from list of known sessions, if there.
+// Thread-safe.
+func (dj *documentJuggler) sessionClosed(sessionKey string) {
+	dj.mu.Lock()
+	defer dj.mu.Unlock()
+
+	i := 0
+	for _, sess := range dj.sessions {
+		if sess.sessionKey != sessionKey {
+			dj.sessions[i] = sess
+			i++
+		}
+	}
+	dj.sessions = dj.sessions[:i]
 }
 
 // Handles a message from a session announced through a CHANGE message.
@@ -376,5 +413,93 @@ func (dj *documentJuggler) changeReceived(sessionKey string, clientRevisionId in
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
-	
+	// What's the change?
+	ok, sess, doc, sel, cs := dj.parseChange(sessionKey, selStr, changeStr)
+	if !ok {
+		return false
+	}
+	// Who are we broadcasting to?
+	receivers := make(map[string]bool)
+	for _, x := range dj.sessions {
+		if x.requestedUtc.IsZero() && x.docId == sess.docId {
+			receivers[x.sessionKey] = true
+		}
+	}
+	// What are we broadcasting?
+	ctb := changeToBroadcast{
+		sourceSessionKey:        sessionKey,
+		sourceBaseDocRevisionId: clientRevisionId,
+		newDocRevisionId:        len(doc.revisions) - 1,
+		receiverSessionKeys:     receivers,
+	}
+	// What is this change?
+	if cs == nil {
+		// This is only about a changed selection
+		sess.selection.Start, sess.selection.End = doc.forwardSelection(sel.Start, sel.End, clientRevisionId)
+		sess.selection.CaretAtStart = sel.CaretAtStart
+		ctb.selJson = dj.getDocSelectionsJSON(sess.docId)
+		dj.xlog.Logf(common.LogSrcDocJug, "Propagating selection update")
+	} else {
+		// We got us a real change set
+		if !cs.IsValid() {
+			dj.xlog.Logf(common.LogSrcDocJug, "Received change is invalid. Ending session.")
+			return false
+		}
+		var csToProp *biscript.ChangeSet
+		csToProp, sess.selection.Start, sess.selection.End = doc.applyChange(cs, sel.Start, sel.End, clientRevisionId)
+		sess.selection.CaretAtStart = sel.CaretAtStart
+		ctb.newDocRevisionId = len(doc.revisions) - 1
+		ctb.selJson = dj.getDocSelectionsJSON(sess.docId)
+		ctb.changeJson = csToProp.SerializeJSON()
+		dj.xlog.Logf(common.LogSrcDocJug, "Propagating change set and selection update")
+	}
+	// Showtime!
+	dj.broadcast <- &ctb
+	return true
+}
+
+// Parses data in received change.
+// Must be called from within lock.
+func (dj *documentJuggler) parseChange(sessionKey string, selStr, changeStr string) (
+	ok bool, sess *editSession, doc *document, sel sessionSelection, cs *biscript.ChangeSet) {
+
+	ok = false
+	sess = nil
+	doc = nil
+	sel = sessionSelection{SessionKey: sessionKey}
+	cs = nil
+
+	for _, x := range dj.sessions {
+		if x.sessionKey == sessionKey {
+			sess = x
+			break
+		}
+	}
+	if sess == nil {
+		return
+	}
+	sess.lastActiveUtc = time.Now().UTC()
+	dj.ensureLoaded(sess.docId)
+	for _, x := range dj.docs {
+		if x.DocId == sess.docId {
+			doc = x
+			break
+		}
+	}
+	if doc == nil {
+		return
+	}
+	if err := json.Unmarshal([]byte(selStr), &sel); err != nil {
+		return
+	}
+	if changeStr != "" {
+		cs = &biscript.ChangeSet{}
+		if err := cs.DeserializeJSON(changeStr); err != nil {
+			dj.xlog.Logf(common.LogSrcDocJug, "Failed to deserialize change set from JSON: %v", err)
+			return
+		}
+	}
+	dj.xlog.Logf(common.LogSrcDocJug, "Parsed change from session %v: Sel %v", sessionKey, sel)
+	ok = true
+	return
 }

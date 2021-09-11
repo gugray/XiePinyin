@@ -22,10 +22,13 @@ var wsupgrader = websocket.Upgrader{
 }
 
 func handleSock(c *gin.Context) {
+
+	xlog.Logf(common.LogSrcApp, "Incoming request at socket endpoint; upgrading to websocket")
 	conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		panic(fmt.Sprintf("websocket upgrade failed: %v", err))
 	}
+	xlog.Logf(common.LogSrcApp, "Websocket established")
 	defer func() {
 		err := conn.Close()
 		if err != nil {

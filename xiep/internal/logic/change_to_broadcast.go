@@ -4,7 +4,7 @@ type changeToBroadcast struct {
 	sourceSessionKey string
 	sourceBaseDocRevisionId int
 	newDocRevisionId int
-	receiverSessionKeys []string
+	receiverSessionKeys map[string]bool
 	selJson string
 	changeJson string
 }

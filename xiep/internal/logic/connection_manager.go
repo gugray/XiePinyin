@@ -8,12 +8,13 @@ import (
 	"xiep/internal/common"
 )
 
-// Document juggler functionality related to edit sessions and processing changes over sockets.
+// document juggler functionality related to edit sessions and processing changes over sockets.
 // Interface allows us to decouple connectionManager from documentJuggler
 type editSessionHandler interface {
 	startSession(sessionKey string) (startMsg string)
 	isSessionOpen(sessionKey string) bool
 	changeReceived(sessionKey string, clientRevisionId int, selStr, changeStr string) bool
+	sessionClosed(sessionKey string)
 }
 
 type connectedPeer struct {
@@ -31,22 +32,30 @@ type connectedPeer struct {
 
 type connectionManager struct {
 	xlog               common.XieLogger
+	exit               chan interface{}
 	editSessionHandler editSessionHandler
-	broadcast          chan changeToBroadcast
-	terminateSessions  chan []string
-	peers              []*connectedPeer
-	mu                 sync.Mutex
+	broadcast          chan *changeToBroadcast
+	terminateSessions  chan map[string]bool
+
+	mu    sync.Mutex
+	peers []*connectedPeer
 }
 
 func (cm *connectionManager) init(xlog common.XieLogger, editSessionHandler editSessionHandler) {
 	cm.xlog = xlog
+	cm.exit = make(chan interface{})
 	cm.editSessionHandler = editSessionHandler
-	cm.broadcast = make(chan changeToBroadcast)
-	cm.terminateSessions = make(chan []string)
+	cm.broadcast = make(chan *changeToBroadcast)
+	cm.terminateSessions = make(chan map[string]bool)
+	go cm.dispatch()
 }
 
-func (cm *connectionManager) getListenerChannels() (broadcast chan<- changeToBroadcast,
-	terminateSessions chan<- []string) {
+func (cm *connectionManager) shutdown() {
+	close(cm.exit)
+}
+
+func (cm *connectionManager) getListenerChannels() (broadcast chan<- *changeToBroadcast,
+	terminateSessions chan<- map[string]bool) {
 	return cm.broadcast, cm.terminateSessions
 }
 
@@ -80,9 +89,22 @@ func (cm *connectionManager) NewConnection(clientIP string) (
 }
 
 func (cm *connectionManager) peerGone(peer *connectedPeer) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
+	// Remove peer from out list
+	i := 0
+	for _, p := range cm.peers {
+		if p != peer {
+			cm.peers[i] = p
+			i++
+		}
+	}
+	cm.peers = cm.peers[:i]
+
+	// Tell document juggler that session is over
+	cm.editSessionHandler.sessionClosed(peer.sessionKey)
 }
-
 func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -114,7 +136,7 @@ func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 		sessionKey := msg[11:]
 		startMsg := cm.editSessionHandler.startSession(sessionKey)
 		if startMsg == "" {
-			peer.closeConn <- "We are not expecting a session with the key."
+			peer.closeConn <- "We are not expecting a session with this key."
 			return
 		}
 		peer.sessionKey = sessionKey
@@ -162,4 +184,60 @@ func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 	}
 	// Anything else: No.
 	peer.closeConn <- "You shouldn't have said that"
+}
+
+// Running in separate goroutine, listens for broadcast requests from doc juggler and sends messages to peers.
+func (cm *connectionManager) dispatch() {
+	for {
+		select {
+		case ctb := <-cm.broadcast:
+			cm.doBroadcast(ctb)
+		case sessionKeys := <-cm.terminateSessions:
+			cm.doTerminateSessions(sessionKeys)
+		case <-cm.exit:
+			break
+		}
+	}
+}
+
+// Broadcasts message to the peers that need to hear it.
+// Thread-safe; invoked from dispatch goroutine.
+func (cm *connectionManager) doBroadcast(ctb *changeToBroadcast) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	updMsg := "UPDATE " + strconv.Itoa(ctb.newDocRevisionId) + " " + ctb.sourceSessionKey + " " + ctb.selJson
+	if ctb.changeJson != "" {
+		updMsg += " " + ctb.changeJson
+	}
+	ackMsg := "ACKCHANGE " + strconv.Itoa(ctb.sourceBaseDocRevisionId) + " " + strconv.Itoa(ctb.newDocRevisionId)
+
+	for _, peer := range cm.peers {
+		// Propagate to all provided session keys, except sender herself
+		if _, ok := ctb.receiverSessionKeys[peer.sessionKey]; ok {
+			if peer.sessionKey != ctb.sourceSessionKey {
+				peer.send <- updMsg
+			}
+		}
+		// Acknowledge change to sender: but only for actual content changes!
+		// We're not acknowledging selection changes, as those don't change revision ID
+		if peer.sessionKey == ctb.sourceSessionKey && ctb.changeJson != "" {
+			peer.send <- ackMsg
+		}
+	}
+}
+
+// Terminates sessions identified by the provided keys.
+// Thread-safe; invoked from dispatch goroutine.
+func (cm *connectionManager) doTerminateSessions(sessionKeys map[string]bool) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	// We only send signal to terminate, but don't remove from list of peers
+	// Socket handler will notify us of connection's closure via peerGone
+	for _, peer := range cm.peers {
+		if _, ok := sessionKeys[peer.sessionKey]; ok {
+			peer.closeConn <- "Terminating because session has been idle for too long"
+		}
+	}
 }

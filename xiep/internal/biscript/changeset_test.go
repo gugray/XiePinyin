@@ -45,8 +45,14 @@ func TestChangeSet_IsValid(t *testing.T) {
 	}
 	for _, val := range vals {
 		var cs ChangeSet
-		cs.FromDiagStr(val)
-		if cs.IsValid() {
+		var r interface{}
+		func() {
+			defer func() {
+				r = recover()
+			}()
+			cs.FromDiagStr(val)
+		}()
+		if r == nil && cs.IsValid() {
 			t.Errorf("Failed to detect invalid change set: %v", val)
 		}
 	}

@@ -26,7 +26,19 @@ var isProd = false
 var logFile *os.File
 var xlog XieSiteLogger
 
+//var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+
 func main() {
+
+	//flag.Parse()
+	//if *cpuprofile != "" {
+	//	f, err := os.Create(*cpuprofile)
+	//	if err != nil {
+	//		log.Fatal(err)
+	//	}
+	//	pprof.StartCPUProfile(f)
+	//	defer pprof.StopCPUProfile()
+	//}
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	initEnv()
@@ -113,7 +125,7 @@ type XieSiteLogger struct {}
 func (XieSiteLogger) Logf(prefix string, format string, v ...interface{}) {
 	var msg string
 	if v != nil {
-		msg = fmt.Sprintf(format, v)
+		msg = fmt.Sprintf(format, v...)
 	} else {
 		msg = format
 	}
