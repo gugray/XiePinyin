@@ -174,6 +174,27 @@
 	</ModalDialog>
 	{/if}
 
+	{#if !isLoggedIn}
+	<h2>From pinyin-only to pinyin-first</h2>
+	<p>
+		<img src="/xie-demo.gif" width="960" height="185" alt="Editing pinyin + Hanzi biscriptal text" />
+	</p>
+	<p>
+		There is a strong case that memorizing characters when you are just starting to learn Mandarin is not an optimal way
+		to spend your energy. I have found that even at an intermediate level, too much focus on the writing system is an obstacle
+		to producing as much written text as possible to activate the language.
+	</p>
+	<p>
+		The 写拼音 biscriptal editor allows me to:
+	</p>
+	<ul>
+		<li>Write text quickly by putting Mandarin's phonetic aspect first</li>
+		<li>Be conscious of tones, which are explicitly needed, unlike in typical input methods</li>
+		<li>Take notes efficiently during class, by naturally having both pinyin and Hanzi in the text</li>
+		<li>Share a document's link and edit together with my teacher during our online classes</li>
+	</ul>
+	{/if}
+
 	<h2>
 		Your documents
 		{#if isLoggedIn}
