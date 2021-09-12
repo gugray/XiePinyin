@@ -40,7 +40,7 @@ func TestComposerResolve(t *testing.T) {
 	}
 	c := loadComposerFromString(simpMapJson, tradMapJson)
 	for _, val := range(vals) {
-		sylls, readings := c.resolve(val.Pinyin, val.IsSimp)
+		sylls, readings := c.Resolve(val.Pinyin, val.IsSimp)
 		if len(readings) != len(val.Readings) {
 			t.Errorf("Wrong number of readings for %v", val.Pinyin)
 			continue

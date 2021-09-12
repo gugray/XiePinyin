@@ -59,7 +59,8 @@ func loadCharReadings(fnJson string) []charReading {
 	return res
 }
 
-func (cp *composer) resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, readings [][]string) {
+// Splits input into pinyin syllables, and returns Hanzi words matching the whole input.
+func (cp *composer) Resolve(pinyinInput string, isSimp bool) (pinyinSylls []string, readings [][]string) {
 	readings = make([][]string, 0)
 	charReadings := cp.readingsTrad
 	if isSimp {

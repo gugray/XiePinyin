@@ -90,7 +90,7 @@ module.exports = (function (elmHost) {
     let reqIx = ++_reqIx;
     var req = $.ajax({
       url: "/api/compose/",
-      type: "POST",
+      type: "GET",
       data: {
         prompt: _plainPrompt,
         isSimp: _inputType == "simp",

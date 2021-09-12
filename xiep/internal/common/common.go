@@ -9,6 +9,7 @@ type Config struct {
 	ServicePort             uint
 	BaseUrl                 string
 	WebSocketAllowedOrigins string
+	DebugHacks              bool
 }
 
 const (

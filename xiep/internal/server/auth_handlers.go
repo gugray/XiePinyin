@@ -1,4 +1,4 @@
-package site
+package server
 
 import (
 	"encoding/json"

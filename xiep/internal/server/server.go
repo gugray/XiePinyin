@@ -1,4 +1,4 @@
-package site
+package server
 
 import (
 	"fmt"
@@ -16,12 +16,13 @@ import (
 )
 
 var xlog common.XieLogger
-var baseUrl string
+var config *common.Config
 var baseDomain string
 
 // Initializes the server, sets up middlewares, handlers etc.
-func InitServer(r *gin.Engine, logger common.XieLogger, config *common.Config) {
-	initInfra(r, logger, config)
+func InitServer(r *gin.Engine, logger common.XieLogger, cfg *common.Config) {
+	config = cfg
+	initInfra(r, logger)
 	initContent(r)
 	initHandlers(r)
 }
@@ -40,6 +41,8 @@ func initHandlers(r *gin.Engine) {
 	rDoc.GET("/open/", handleDocOpen)
 	rDoc.POST("/create/", handleDocCreate)
 	rDoc.POST("/delete/", handleDocDelete)
+	// api/compose endpoint
+	r.GET("/api/compose/", handleCompose);
 	// Websocket at /sock
 	r.GET("/sock/", handleSock).Use(checkAuth)
 }
@@ -56,7 +59,7 @@ func initContent(r *gin.Engine) {
 	r.Use(static.Serve("/", static.LocalFile("./static", true)))
 }
 
-func initInfra(r *gin.Engine, logger common.XieLogger, config *common.Config) {
+func initInfra(r *gin.Engine, logger common.XieLogger) {
 
 	xlog = logger
 
@@ -82,11 +85,10 @@ func initInfra(r *gin.Engine, logger common.XieLogger, config *common.Config) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))
 
-	baseUrl = config.BaseUrl
-	if ix := strings.Index(baseUrl, ":"); ix == -1 {
-		baseDomain = baseUrl
+	if ix := strings.Index(config.BaseUrl, ":"); ix == -1 {
+		baseDomain = config.BaseUrl
 	} else {
-		baseDomain =baseUrl[:ix]
+		baseDomain =config.BaseUrl[:ix]
 	}
 }
 

@@ -6,5 +6,6 @@
   "logFile": "../../_data/_logs/xiep.log",
   "servicePort": 1313,
   "baseUrl": "localhost:1313/",
-  "webSocketAllowedOrigins": "http://localhost:1313"
+  "webSocketAllowedOrigins": "http://localhost:1313",
+  "debugHacks": true
 }

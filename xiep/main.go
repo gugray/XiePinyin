@@ -18,7 +18,7 @@ import (
 	"time"
 	"xiep/internal/common"
 	"xiep/internal/logic"
-	"xiep/internal/site"
+	"xiep/internal/server"
 )
 
 var config common.Config
@@ -57,7 +57,7 @@ func main() {
 	gin.DefaultWriter = ginWriter{}
 
 	logic.InitTheApp(&config, xlog)
-	site.InitServer(r, xlog, &config)
+	server.InitServer(r, xlog, &config)
 
 	srv := &http.Server{
 		Addr:    addStr,
