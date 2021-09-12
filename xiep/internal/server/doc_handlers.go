@@ -18,7 +18,7 @@ func handleDocOpen(c *gin.Context) {
 	if !ok {
 		return
 	}
-	sessionKey := logic.TheApp.DocumentJuggler.RequestSession(docId)
+	sessionKey := logic.TheApp.Orchestrator.RequestSession(docId)
 	if sessionKey == "" {
 		c.String(http.StatusNotFound, "Document not found.")
 		return
@@ -31,7 +31,7 @@ func handleDocCreate(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if docId, err := logic.TheApp.DocumentJuggler.CreateDocument(name); err != nil {
+	if docId, err := logic.TheApp.Orchestrator.CreateDocument(name); err != nil {
 		panic(fmt.Sprintf("Failed to create document: %v", err))
 	} else {
 		sendDocSuccess(c, docId)
@@ -43,7 +43,7 @@ func handleDocDelete(c *gin.Context) {
 	if !ok {
 		return
 	}
-	logic.TheApp.DocumentJuggler.DeleteDocument(docId)
+	logic.TheApp.Orchestrator.DeleteDocument(docId)
 	sendDocSuccess(c, docId)
 }
 

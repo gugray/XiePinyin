@@ -44,7 +44,6 @@ func main() {
 	initEnv()
 	addStr := ":" + strconv.FormatUint(uint64(config.ServicePort), 10)
 
-	r := gin.New()
 	var  logOutput io.Writer
 	if isProd {
 		logOutput = logFile
@@ -55,6 +54,8 @@ func main() {
 	}
 	log.SetOutput(logOutput)
 	gin.DefaultWriter = ginWriter{}
+
+	r := gin.New()
 
 	logic.InitTheApp(&config, xlog)
 	server.InitServer(r, xlog, &config)

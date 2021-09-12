@@ -43,7 +43,10 @@ func handleSock(c *gin.Context) {
 		defer func() {
 			if r := recover(); r != nil {
 				xlog.Logf(common.LogSrcSocketHandler, "Panic while processing message: %v", r)
-				conn.Close()
+				err := conn.Close()
+				if err != nil {
+					xlog.Logf(common.LogSrcSocketHandler, "Error closing socket after panic: %v", err)
+				}
 			}
 		}()
 		for {

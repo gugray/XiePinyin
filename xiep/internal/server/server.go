@@ -42,7 +42,7 @@ func initHandlers(r *gin.Engine) {
 	rDoc.POST("/create/", handleDocCreate)
 	rDoc.POST("/delete/", handleDocDelete)
 	// api/compose endpoint
-	r.GET("/api/compose/", handleCompose);
+	r.GET("/api/compose/", handleCompose)
 	// Websocket at /sock
 	r.GET("/sock/", handleSock).Use(checkAuth)
 }

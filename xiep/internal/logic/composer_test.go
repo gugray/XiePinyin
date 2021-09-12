@@ -9,7 +9,7 @@ func TestComposerLoadFull(t *testing.T) {
 }
 
 func TestComposerPinyinNumsToSurf(t *testing.T) {
-	vals := [][]string {
+	vals := [][]string{
 		{"shu1zi", "shūzi"},
 		{"Bei3jing1", "Běijīng"},
 		{"Őz", "Őz"},
@@ -17,7 +17,7 @@ func TestComposerPinyinNumsToSurf(t *testing.T) {
 		//{"da2an4", "dá'àn"}, // Feature
 	}
 	c := loadComposerFromString(simpMapJson, tradMapJson)
-	for _, val := range(vals) {
+	for _, val := range vals {
 		surf := c.pinyinNumsToSurf(val[0])
 		if surf != val[1] {
 			t.Errorf("Wrong surface form for %v: exected %v, got %v", val[0], val[1], surf)
@@ -27,19 +27,19 @@ func TestComposerPinyinNumsToSurf(t *testing.T) {
 
 func TestComposerResolve(t *testing.T) {
 	type Itm struct {
-		Pinyin string
-		IsSimp bool
-		Sylls []string
+		Pinyin   string
+		IsSimp   bool
+		Sylls    []string
 		Readings []string
 	}
-	vals := []Itm {
-		{"jing1", true, []string {"jing1"}, []string {"经", "精"}},
-		{"jing1", false, []string {"jing1"}, []string {"經", "精"}},
-		{"shu1zi", true, []string {"shu1", "zi"}, []string {"叔 子", "梳 子"}},
-		{"Shu1zi", true, []string {"Shu1", "zi"}, []string {"叔 子", "梳 子"}},
+	vals := []Itm{
+		{"jing1", true, []string{"jing1"}, []string{"经", "精"}},
+		{"jing1", false, []string{"jing1"}, []string{"經", "精"}},
+		{"shu1zi", true, []string{"shu1", "zi"}, []string{"叔 子", "梳 子"}},
+		{"Shu1zi", true, []string{"Shu1", "zi"}, []string{"叔 子", "梳 子"}},
 	}
 	c := loadComposerFromString(simpMapJson, tradMapJson)
-	for _, val := range(vals) {
+	for _, val := range vals {
 		sylls, readings := c.Resolve(val.Pinyin, val.IsSimp)
 		if len(readings) != len(val.Readings) {
 			t.Errorf("Wrong number of readings for %v", val.Pinyin)
@@ -56,7 +56,7 @@ func TestComposerResolve(t *testing.T) {
 			}
 		}
 		if !sameReadings {
-			t.Errorf("Readings are different, or not in the same order, for %v",val.Pinyin)
+			t.Errorf("Readings are different, or not in the same order, for %v", val.Pinyin)
 		}
 		sameSylls := true
 		for i := 0; i < len(sylls); i++ {
@@ -65,7 +65,7 @@ func TestComposerResolve(t *testing.T) {
 			}
 		}
 		if !sameSylls {
-			t.Errorf("Syllables are different for %v",val.Pinyin)
+			t.Errorf("Syllables are different for %v", val.Pinyin)
 		}
 	}
 }
@@ -111,4 +111,3 @@ var tradMapJson = `
   }
 ]
 `
-

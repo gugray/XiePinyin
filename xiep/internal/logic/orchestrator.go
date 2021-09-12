@@ -52,7 +52,7 @@ type sessionStartMessage struct {
 	PeerSelections []sessionSelection `json:"peerSelections"`
 }
 
-type documentJuggler struct {
+type orchestrator struct {
 	xlog              common.XieLogger
 	composer          *composer
 	docsFolder        string
@@ -66,7 +66,7 @@ type documentJuggler struct {
 	sessions []*editSession
 }
 
-func (dj *documentJuggler) init(xlog common.XieLogger,
+func (dj *orchestrator) init(xlog common.XieLogger,
 	composer *composer,
 	docsFolder string,
 	exportsFolder string,
@@ -79,12 +79,12 @@ func (dj *documentJuggler) init(xlog common.XieLogger,
 	go dj.housekeep()
 }
 
-func (dj *documentJuggler) shutdown() {
+func (dj *orchestrator) shutdown() {
 	close(dj.exit)
 }
 
 // Performs periodic housekeeping like saving dirty documents, unloading stale docs, terminating inactive sessions
-func (dj *documentJuggler) housekeep() {
+func (dj *orchestrator) housekeep() {
 	ticker := time.NewTicker(docJugHousekeepPeriodSec * time.Second)
 	safeExec := func(f func()) {
 		defer func() {
@@ -111,7 +111,7 @@ func (dj *documentJuggler) housekeep() {
 
 // Saves dirty docs and unloads inactive docs.
 // Thread-safe; invoked from housekeep goroutine.
-func (dj *documentJuggler) housekeepDocs() {
+func (dj *orchestrator) housekeepDocs() {
 	// We break out of closure within loop after each document save
 	// This way we release and re-acquire lock, so that other requests can be served between long-ish blocking IO writes
 	for finished := false; !finished; {
@@ -148,7 +148,7 @@ func (dj *documentJuggler) housekeepDocs() {
 
 // Unloads inactive and unclaimed sessions; terminates what must be closed.
 // Thread-safe; invoked from housekeep goroutine.
-func (dj *documentJuggler) cleanupSessions() {
+func (dj *orchestrator) cleanupSessions() {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
@@ -178,13 +178,13 @@ func (dj *documentJuggler) cleanupSessions() {
 
 // Assembles full file system path of saved document.
 // Thread-safe.
-func (dj *documentJuggler) getDocFileName(docId string) string {
+func (dj *orchestrator) getDocFileName(docId string) string {
 	return path.Join(dj.docsFolder, docId+".json")
 }
 
 // Gets index of document in loaded array. Returns -1 if not currently loaded.
 // Must be called from within lock.
-func (dj *documentJuggler) getDocIx(docId string) int {
+func (dj *orchestrator) getDocIx(docId string) int {
 	for ix, doc := range dj.docs {
 		if doc.DocId == docId {
 			return ix
@@ -195,7 +195,7 @@ func (dj *documentJuggler) getDocIx(docId string) int {
 
 // Gets index of a session by key. Returns -1 if no such session.
 // Must be called from within lock.
-func (dj *documentJuggler) getSessionIx(sessionKey string) int {
+func (dj *orchestrator) getSessionIx(sessionKey string) int {
 	for ix, sess := range dj.sessions {
 		if sess.sessionKey == sessionKey {
 			return ix
@@ -207,7 +207,7 @@ func (dj *documentJuggler) getSessionIx(sessionKey string) int {
 // Creates new document.
 // Returns error if document could not be created.
 // Thread-safe.
-func (dj *documentJuggler) CreateDocument(name string) (docId string, err error) {
+func (dj *orchestrator) CreateDocument(name string) (docId string, err error) {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
@@ -236,7 +236,7 @@ func (dj *documentJuggler) CreateDocument(name string) (docId string, err error)
 // Unload document and deletes from disk; destroys existing sessions.
 // If document does not exist, or if it cannot be deleted, logs incident, but returns normally.
 // Thread-safe.
-func (dj *documentJuggler) DeleteDocument(docId string) {
+func (dj *orchestrator) DeleteDocument(docId string) {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
@@ -275,7 +275,7 @@ func (dj *documentJuggler) DeleteDocument(docId string) {
 // Loads a doc from disk if it exists but no currently in memory.
 // If document does not exist, or cannot be parsed, logs incident and returns normally.
 // Must be called from within lock.
-func (dj *documentJuggler) ensureLoaded(docId string) {
+func (dj *orchestrator) ensureLoaded(docId string) {
 	docIx := dj.getDocIx(docId)
 	if docIx != -1 {
 		return
@@ -292,7 +292,7 @@ func (dj *documentJuggler) ensureLoaded(docId string) {
 // Requests a new editing session.
 // Returns new session ID, or zero string if document does not exist.
 // Thread-safe.
-func (dj *documentJuggler) RequestSession(docId string) (sessionKey string) {
+func (dj *orchestrator) RequestSession(docId string) (sessionKey string) {
 
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
@@ -320,7 +320,7 @@ func (dj *documentJuggler) RequestSession(docId string) (sessionKey string) {
 
 // Retrieves currently known selections in all active sessions.
 // Must be called from within lock.
-func (dj *documentJuggler) getDocSelections(docId string) []sessionSelection {
+func (dj *orchestrator) getDocSelections(docId string) []sessionSelection {
 	res := make([]sessionSelection, 0, 1)
 	for _, sess := range dj.sessions {
 		if sess.docId != docId || sess.selection == nil {
@@ -338,7 +338,7 @@ func (dj *documentJuggler) getDocSelections(docId string) []sessionSelection {
 
 // Retrieves currently known selections in all active sessions and returns result serialized into JSON.
 // Must be called from within lock.
-func (dj *documentJuggler) getDocSelectionsJSON(docId string) string {
+func (dj *orchestrator) getDocSelectionsJSON(docId string) string {
 	sessionSelections := dj.getDocSelections(docId)
 	selJson, err := json.Marshal(&sessionSelections)
 	if err != nil {
@@ -349,7 +349,7 @@ func (dj *documentJuggler) getDocSelectionsJSON(docId string) string {
 
 // Starts a new session in response to SESSIONKEY message from socket client
 // Thread-safe.
-func (dj *documentJuggler) startSession(sessionKey string) (startMsg string) {
+func (dj *orchestrator) startSession(sessionKey string) (startMsg string) {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
@@ -383,7 +383,7 @@ func (dj *documentJuggler) startSession(sessionKey string) (startMsg string) {
 
 // Checks whether session with provided key is currently active (exists and has been started).
 // Thread-safe.
-func (dj *documentJuggler) isSessionOpen(sessionKey string) bool {
+func (dj *orchestrator) isSessionOpen(sessionKey string) bool {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
@@ -393,7 +393,7 @@ func (dj *documentJuggler) isSessionOpen(sessionKey string) bool {
 
 // Removes session with the provided key from list of known sessions, if there.
 // Thread-safe.
-func (dj *documentJuggler) sessionClosed(sessionKey string) {
+func (dj *orchestrator) sessionClosed(sessionKey string) {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
@@ -409,7 +409,7 @@ func (dj *documentJuggler) sessionClosed(sessionKey string) {
 
 // Handles a message from a session announced through a CHANGE message.
 // Thread-safe.
-func (dj *documentJuggler) changeReceived(sessionKey string, clientRevisionId int, selStr, changeStr string) bool {
+func (dj *orchestrator) changeReceived(sessionKey string, clientRevisionId int, selStr, changeStr string) bool {
 	dj.mu.Lock()
 	defer dj.mu.Unlock()
 
@@ -460,7 +460,7 @@ func (dj *documentJuggler) changeReceived(sessionKey string, clientRevisionId in
 
 // Parses data in received change.
 // Must be called from within lock.
-func (dj *documentJuggler) parseChange(sessionKey string, selStr, changeStr string) (
+func (dj *orchestrator) parseChange(sessionKey string, selStr, changeStr string) (
 	ok bool, sess *editSession, doc *document, sel sessionSelection, cs *biscript.ChangeSet) {
 
 	ok = false

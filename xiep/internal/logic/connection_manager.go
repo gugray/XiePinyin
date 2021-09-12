@@ -9,7 +9,7 @@ import (
 )
 
 // document juggler functionality related to edit sessions and processing changes over sockets.
-// Interface allows us to decouple connectionManager from documentJuggler
+// Interface allows us to decouple connectionManager from orchestrator
 type editSessionHandler interface {
 	startSession(sessionKey string) (startMsg string)
 	isSessionOpen(sessionKey string) bool

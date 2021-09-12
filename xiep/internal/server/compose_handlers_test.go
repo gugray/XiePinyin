@@ -8,7 +8,7 @@ import (
 func TestComposeResult_JSON(t *testing.T) {
 	cr :=  composeResult{
 		PinyinSylls: []string{"wei4", "wei2"},
-		Words:[][]string{[]string{"为", "魏"}, []string{"X", "Y"}},
+		Words:[][]string{{"为", "魏"}, {"X", "Y"}},
 	}
 	jsonBytes, err := json.Marshal(&cr)
 	if err !=nil {
