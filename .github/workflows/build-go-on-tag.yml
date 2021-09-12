@@ -17,8 +17,10 @@ jobs:
     - name: Write version from REF to file
       working-directory: ./xiep
       run: |
-        mkdir deploy
-        cd deploy
+        ls -l &
+        mkdir deploy &
+        cd deploy &
+        ls -l &
         'echo "${GITHUB_REF/refs\/tags\//}" >version.txt' 
 
     #- name: Update project version
@@ -49,7 +51,7 @@ jobs:
         go-version: 1.17.1
 
     - name: Build
-      run: go build -o deploy\
+      run: go build -o deploy/
 
     - name: Test
       run: go test ./...
