@@ -9,6 +9,7 @@ import (
 	"time"
 	"xiep/internal/biscript"
 	"xiep/internal/common"
+	"xiep/internal/docx"
 )
 
 const (
@@ -66,30 +67,30 @@ type orchestrator struct {
 	sessions []*editSession
 }
 
-func (dj *orchestrator) init(xlog common.XieLogger,
+func (ork *orchestrator) init(xlog common.XieLogger,
 	composer *composer,
 	docsFolder string,
 	exportsFolder string,
 ) {
-	dj.xlog = xlog
-	dj.composer = composer
-	dj.docsFolder = docsFolder
-	dj.exportsFolder = exportsFolder
-	dj.exit = make(chan interface{})
-	go dj.housekeep()
+	ork.xlog = xlog
+	ork.composer = composer
+	ork.docsFolder = docsFolder
+	ork.exportsFolder = exportsFolder
+	ork.exit = make(chan interface{})
+	go ork.housekeep()
 }
 
-func (dj *orchestrator) shutdown() {
-	close(dj.exit)
+func (ork *orchestrator) shutdown() {
+	close(ork.exit)
 }
 
 // Performs periodic housekeeping like saving dirty documents, unloading stale docs, terminating inactive sessions
-func (dj *orchestrator) housekeep() {
+func (ork *orchestrator) housekeep() {
 	ticker := time.NewTicker(docJugHousekeepPeriodSec * time.Second)
 	safeExec := func(f func()) {
 		defer func() {
 			if r := recover(); r != nil {
-				dj.xlog.Logf(common.LogSrcDocJug, "Panic in housekeeping goroutine: %v", r)
+				ork.xlog.Logf(common.LogSrcOrchestrator, "Panic in housekeeping goroutine: %v", r)
 			}
 		}()
 		f()
@@ -97,13 +98,13 @@ func (dj *orchestrator) housekeep() {
 	for {
 		select {
 		case <-ticker.C:
-			safeExec(dj.housekeepDocs)
-			safeExec(dj.cleanupSessions)
-		case <-dj.exit:
-			dj.xlog.Logf(common.LogSrcDocJug, "Housekeeping thread exiting")
+			safeExec(ork.housekeepDocs)
+			safeExec(ork.cleanupSessions)
+		case <-ork.exit:
+			ork.xlog.Logf(common.LogSrcOrchestrator, "Housekeeping thread exiting")
 			ticker.Stop()
-			safeExec(dj.housekeepDocs)
-			dj.xlog.Logf(common.LogSrcDocJug, "Housekeeping thread finished")
+			safeExec(ork.housekeepDocs)
+			ork.xlog.Logf(common.LogSrcOrchestrator, "Housekeeping thread finished")
 			return
 		}
 	}
@@ -111,33 +112,33 @@ func (dj *orchestrator) housekeep() {
 
 // Saves dirty docs and unloads inactive docs.
 // Thread-safe; invoked from housekeep goroutine.
-func (dj *orchestrator) housekeepDocs() {
+func (ork *orchestrator) housekeepDocs() {
 	// We break out of closure within loop after each document save
 	// This way we release and re-acquire lock, so that other requests can be served between long-ish blocking IO writes
 	for finished := false; !finished; {
 		func() {
-			dj.mu.Lock()
-			defer dj.mu.Unlock()
+			ork.mu.Lock()
+			defer ork.mu.Unlock()
 
 			// Remove docs that have been inactive for long
 			// Also remember a dirty document if we see one
 			i := 0
 			var dirtyDoc *document
-			for _, doc := range dj.docs {
+			for _, doc := range ork.docs {
 				hasExpired := time.Now().UTC().Sub(doc.lastAccessedUtc).Seconds() > docJugUnloadAfterSeconds
 				if !hasExpired {
-					dj.docs[i] = doc
+					ork.docs[i] = doc
 					i++
 				}
 				if doc.dirty {
 					dirtyDoc = doc
 				}
 			}
-			dj.docs = dj.docs[:i]
+			ork.docs = ork.docs[:i]
 			// Save the last dirty document that we found
 			if dirtyDoc != nil {
-				if err := dirtyDoc.saveToFile(dj.getDocFileName(dirtyDoc.DocId)); err != nil {
-					dj.xlog.Logf(common.LogSrcDocJug, "Error saving dirty document %v: %v", dirtyDoc.DocId, err)
+				if err := dirtyDoc.saveToFile(ork.getDocFileName(dirtyDoc.DocId)); err != nil {
+					ork.xlog.Logf(common.LogSrcOrchestrator, "Error saving dirty document %v: %v", dirtyDoc.DocId, err)
 				}
 			}
 			// If we removed a single dirty doc, we continue looping: there may be more
@@ -148,14 +149,14 @@ func (dj *orchestrator) housekeepDocs() {
 
 // Unloads inactive and unclaimed sessions; terminates what must be closed.
 // Thread-safe; invoked from housekeep goroutine.
-func (dj *orchestrator) cleanupSessions() {
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+func (ork *orchestrator) cleanupSessions() {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
 	// Keys of sessions to terminate
 	toTerminate := make(map[string]bool)
 	i := 0
-	for _, sess := range dj.sessions {
+	for _, sess := range ork.sessions {
 		unload := false
 		// Requested too long ago, and not claimed yet
 		if !sess.requestedUtc.IsZero() &&
@@ -168,24 +169,24 @@ func (dj *orchestrator) cleanupSessions() {
 			toTerminate[sess.sessionKey] = true
 		}
 		if !unload {
-			dj.sessions[i] = sess
+			ork.sessions[i] = sess
 			i++
 		}
 	}
-	dj.sessions = dj.sessions[:i]
-	dj.terminateSessions <- toTerminate
+	ork.sessions = ork.sessions[:i]
+	ork.terminateSessions <- toTerminate
 }
 
 // Assembles full file system path of saved document.
 // Thread-safe.
-func (dj *orchestrator) getDocFileName(docId string) string {
-	return path.Join(dj.docsFolder, docId+".json")
+func (ork *orchestrator) getDocFileName(docId string) string {
+	return path.Join(ork.docsFolder, docId+".json")
 }
 
 // Gets index of document in loaded array. Returns -1 if not currently loaded.
 // Must be called from within lock.
-func (dj *orchestrator) getDocIx(docId string) int {
-	for ix, doc := range dj.docs {
+func (ork *orchestrator) getDocIx(docId string) int {
+	for ix, doc := range ork.docs {
 		if doc.DocId == docId {
 			return ix
 		}
@@ -195,8 +196,8 @@ func (dj *orchestrator) getDocIx(docId string) int {
 
 // Gets index of a session by key. Returns -1 if no such session.
 // Must be called from within lock.
-func (dj *orchestrator) getSessionIx(sessionKey string) int {
-	for ix, sess := range dj.sessions {
+func (ork *orchestrator) getSessionIx(sessionKey string) int {
+	for ix, sess := range ork.sessions {
 		if sess.sessionKey == sessionKey {
 			return ix
 		}
@@ -207,18 +208,18 @@ func (dj *orchestrator) getSessionIx(sessionKey string) int {
 // Creates new document.
 // Returns error if document could not be created.
 // Thread-safe.
-func (dj *orchestrator) CreateDocument(name string) (docId string, err error) {
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+func (ork *orchestrator) CreateDocument(name string) (docId string, err error) {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
 	err = nil
 	var docFileName string
 	for {
 		docId = getShortId()
-		if ix := dj.getDocIx(docId); ix != -1 {
+		if ix := ork.getDocIx(docId); ix != -1 {
 			continue
 		}
-		docFileName = dj.getDocFileName(docId)
+		docFileName = ork.getDocFileName(docId)
 		if _, err := os.Stat(docFileName); err == nil {
 			continue
 		}
@@ -229,45 +230,45 @@ func (dj *orchestrator) CreateDocument(name string) (docId string, err error) {
 	if err = doc.saveToFile(docFileName); err != nil {
 		return
 	}
-	dj.docs = append(dj.docs, &doc)
+	ork.docs = append(ork.docs, &doc)
 	return
 }
 
 // Unload document and deletes from disk; destroys existing sessions.
 // If document does not exist, or if it cannot be deleted, logs incident, but returns normally.
 // Thread-safe.
-func (dj *orchestrator) DeleteDocument(docId string) {
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+func (ork *orchestrator) DeleteDocument(docId string) {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
 	// Find index of document in docs array (might not be present if not loaded)
-	docIx := dj.getDocIx(docId)
+	docIx := ork.getDocIx(docId)
 	// Remove doc from array, if loaded
 	if docIx != -1 {
-		dj.docs[docIx] = dj.docs[len(dj.docs)-1]
-		dj.docs[len(dj.docs)-1] = nil
-		dj.docs = dj.docs[:len(dj.docs)-1]
+		ork.docs[docIx] = ork.docs[len(ork.docs)-1]
+		ork.docs[len(ork.docs)-1] = nil
+		ork.docs = ork.docs[:len(ork.docs)-1]
 	}
 	// Remove any related sessions
 	i := 0
-	for _, sess := range dj.sessions {
+	for _, sess := range ork.sessions {
 		if sess.docId != docId {
-			dj.sessions[i] = sess
+			ork.sessions[i] = sess
 			i++
 		}
 	}
-	dj.sessions = dj.sessions[:i]
+	ork.sessions = ork.sessions[:i]
 	// Delete file
-	docFileName := dj.getDocFileName(docId)
+	docFileName := ork.getDocFileName(docId)
 	// Try to delete if file seems to exist
 	if _, err := os.Stat(docFileName); err != nil {
 		// File does not exist: log it, but life can go on
-		dj.xlog.Logf(common.LogSrcDocJug, "document on disk does not seem to exist (no big deal): %v", err)
+		ork.xlog.Logf(common.LogSrcOrchestrator, "document on disk does not seem to exist (no big deal): %v", err)
 	} else {
 		// File exists: get rid of it
 		if err := os.Remove(docFileName); err != nil {
 			// If physical delete fails, log error, but otherwise life can go on
-			dj.xlog.Logf(common.LogSrcDocJug, "Failed to delete document from disk (no big deal): %v", err)
+			ork.xlog.Logf(common.LogSrcOrchestrator, "Failed to delete document from disk (no big deal): %v", err)
 		}
 	}
 }
@@ -275,35 +276,35 @@ func (dj *orchestrator) DeleteDocument(docId string) {
 // Loads a doc from disk if it exists but no currently in memory.
 // If document does not exist, or cannot be parsed, logs incident and returns normally.
 // Must be called from within lock.
-func (dj *orchestrator) ensureLoaded(docId string) {
-	docIx := dj.getDocIx(docId)
+func (ork *orchestrator) ensureLoaded(docId string) {
+	docIx := ork.getDocIx(docId)
 	if docIx != -1 {
 		return
 	}
-	docFileName := dj.getDocFileName(docId)
+	docFileName := ork.getDocFileName(docId)
 	var doc document
 	if err := doc.loadFromFile(docFileName); err != nil {
-		dj.xlog.Logf(common.LogSrcDocJug, "Failed to load document from file: %v", err)
+		ork.xlog.Logf(common.LogSrcOrchestrator, "Failed to load document from file: %v", err)
 		return
 	}
-	dj.docs = append(dj.docs, &doc)
+	ork.docs = append(ork.docs, &doc)
 }
 
 // Requests a new editing session.
 // Returns new session ID, or zero string if document does not exist.
 // Thread-safe.
-func (dj *orchestrator) RequestSession(docId string) (sessionKey string) {
+func (ork *orchestrator) RequestSession(docId string) (sessionKey string) {
 
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
-	dj.ensureLoaded(docId)
-	if docIx := dj.getDocIx(docId); docIx == -1 {
+	ork.ensureLoaded(docId)
+	if docIx := ork.getDocIx(docId); docIx == -1 {
 		return ""
 	}
 	for {
 		sessionKey = "S-" + getShortId()
-		if ix := dj.getSessionIx(sessionKey); ix == -1 {
+		if ix := ork.getSessionIx(sessionKey); ix == -1 {
 			break
 		}
 	}
@@ -313,16 +314,16 @@ func (dj *orchestrator) RequestSession(docId string) (sessionKey string) {
 		lastActiveUtc: time.Now().UTC(),
 		requestedUtc:  time.Now().UTC(),
 	}
-	dj.sessions = append(dj.sessions, &sess)
+	ork.sessions = append(ork.sessions, &sess)
 
 	return sessionKey
 }
 
 // Retrieves currently known selections in all active sessions.
 // Must be called from within lock.
-func (dj *orchestrator) getDocSelections(docId string) []sessionSelection {
+func (ork *orchestrator) getDocSelections(docId string) []sessionSelection {
 	res := make([]sessionSelection, 0, 1)
-	for _, sess := range dj.sessions {
+	for _, sess := range ork.sessions {
 		if sess.docId != docId || sess.selection == nil {
 			continue
 		}
@@ -338,8 +339,8 @@ func (dj *orchestrator) getDocSelections(docId string) []sessionSelection {
 
 // Retrieves currently known selections in all active sessions and returns result serialized into JSON.
 // Must be called from within lock.
-func (dj *orchestrator) getDocSelectionsJSON(docId string) string {
-	sessionSelections := dj.getDocSelections(docId)
+func (ork *orchestrator) getDocSelectionsJSON(docId string) string {
+	sessionSelections := ork.getDocSelections(docId)
 	selJson, err := json.Marshal(&sessionSelections)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to serialize session selections to JSON: %v", err))
@@ -349,29 +350,29 @@ func (dj *orchestrator) getDocSelectionsJSON(docId string) string {
 
 // Starts a new session in response to SESSIONKEY message from socket client
 // Thread-safe.
-func (dj *orchestrator) startSession(sessionKey string) (startMsg string) {
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+func (ork *orchestrator) startSession(sessionKey string) (startMsg string) {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
 	startMsg = ""
-	sessionIx := dj.getSessionIx(sessionKey)
+	sessionIx := ork.getSessionIx(sessionKey)
 	if sessionIx == -1 {
 		return
 	}
-	sess := dj.sessions[sessionIx]
+	sess := ork.sessions[sessionIx]
 	if sess.requestedUtc.IsZero() {
 		return
 	}
-	docIx := dj.getDocIx(sess.docId)
+	docIx := ork.getDocIx(sess.docId)
 	if docIx == -1 {
 		return
 	}
-	doc := dj.docs[docIx]
+	doc := ork.docs[docIx]
 	ssm := sessionStartMessage{
 		Name:           doc.Name,
 		RevisionId:     len(doc.revisions) - 1,
 		Text:           doc.headText,
-		PeerSelections: dj.getDocSelections(doc.DocId),
+		PeerSelections: ork.getDocSelections(doc.DocId),
 	}
 	sess.requestedUtc = time.Time{}
 	sess.selection = &sessionSelection{}
@@ -383,44 +384,44 @@ func (dj *orchestrator) startSession(sessionKey string) (startMsg string) {
 
 // Checks whether session with provided key is currently active (exists and has been started).
 // Thread-safe.
-func (dj *orchestrator) isSessionOpen(sessionKey string) bool {
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+func (ork *orchestrator) isSessionOpen(sessionKey string) bool {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
-	sessionIx := dj.getSessionIx(sessionKey)
-	return sessionIx != -1 && dj.sessions[sessionIx].requestedUtc.IsZero()
+	sessionIx := ork.getSessionIx(sessionKey)
+	return sessionIx != -1 && ork.sessions[sessionIx].requestedUtc.IsZero()
 }
 
 // Removes session with the provided key from list of known sessions, if there.
 // Thread-safe.
-func (dj *orchestrator) sessionClosed(sessionKey string) {
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+func (ork *orchestrator) sessionClosed(sessionKey string) {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
 	i := 0
-	for _, sess := range dj.sessions {
+	for _, sess := range ork.sessions {
 		if sess.sessionKey != sessionKey {
-			dj.sessions[i] = sess
+			ork.sessions[i] = sess
 			i++
 		}
 	}
-	dj.sessions = dj.sessions[:i]
+	ork.sessions = ork.sessions[:i]
 }
 
 // Handles a message from a session announced through a CHANGE message.
 // Thread-safe.
-func (dj *orchestrator) changeReceived(sessionKey string, clientRevisionId int, selStr, changeStr string) bool {
-	dj.mu.Lock()
-	defer dj.mu.Unlock()
+func (ork *orchestrator) changeReceived(sessionKey string, clientRevisionId int, selStr, changeStr string) bool {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
 
 	// What's the change?
-	ok, sess, doc, sel, cs := dj.parseChange(sessionKey, selStr, changeStr)
+	ok, sess, doc, sel, cs := ork.parseChange(sessionKey, selStr, changeStr)
 	if !ok {
 		return false
 	}
 	// Who are we broadcasting to?
 	receivers := make(map[string]bool)
-	for _, x := range dj.sessions {
+	for _, x := range ork.sessions {
 		if x.requestedUtc.IsZero() && x.docId == sess.docId {
 			receivers[x.sessionKey] = true
 		}
@@ -437,30 +438,30 @@ func (dj *orchestrator) changeReceived(sessionKey string, clientRevisionId int, 
 		// This is only about a changed selection
 		sess.selection.Start, sess.selection.End = doc.forwardSelection(sel.Start, sel.End, clientRevisionId)
 		sess.selection.CaretAtStart = sel.CaretAtStart
-		ctb.selJson = dj.getDocSelectionsJSON(sess.docId)
-		dj.xlog.Logf(common.LogSrcDocJug, "Propagating selection update")
+		ctb.selJson = ork.getDocSelectionsJSON(sess.docId)
+		ork.xlog.Logf(common.LogSrcOrchestrator, "Propagating selection update")
 	} else {
 		// We got us a real change set
 		if !cs.IsValid() {
-			dj.xlog.Logf(common.LogSrcDocJug, "Received change is invalid. Ending session.")
+			ork.xlog.Logf(common.LogSrcOrchestrator, "Received change is invalid. Ending session.")
 			return false
 		}
 		var csToProp *biscript.ChangeSet
 		csToProp, sess.selection.Start, sess.selection.End = doc.applyChange(cs, sel.Start, sel.End, clientRevisionId)
 		sess.selection.CaretAtStart = sel.CaretAtStart
 		ctb.newDocRevisionId = len(doc.revisions) - 1
-		ctb.selJson = dj.getDocSelectionsJSON(sess.docId)
+		ctb.selJson = ork.getDocSelectionsJSON(sess.docId)
 		ctb.changeJson = csToProp.SerializeJSON()
-		dj.xlog.Logf(common.LogSrcDocJug, "Propagating change set and selection update")
+		ork.xlog.Logf(common.LogSrcOrchestrator, "Propagating change set and selection update")
 	}
 	// Showtime!
-	dj.broadcast <- &ctb
+	ork.broadcast <- &ctb
 	return true
 }
 
 // Parses data in received change.
 // Must be called from within lock.
-func (dj *orchestrator) parseChange(sessionKey string, selStr, changeStr string) (
+func (ork *orchestrator) parseChange(sessionKey string, selStr, changeStr string) (
 	ok bool, sess *editSession, doc *document, sel sessionSelection, cs *biscript.ChangeSet) {
 
 	ok = false
@@ -469,7 +470,7 @@ func (dj *orchestrator) parseChange(sessionKey string, selStr, changeStr string)
 	sel = sessionSelection{SessionKey: sessionKey}
 	cs = nil
 
-	for _, x := range dj.sessions {
+	for _, x := range ork.sessions {
 		if x.sessionKey == sessionKey {
 			sess = x
 			break
@@ -479,8 +480,8 @@ func (dj *orchestrator) parseChange(sessionKey string, selStr, changeStr string)
 		return
 	}
 	sess.lastActiveUtc = time.Now().UTC()
-	dj.ensureLoaded(sess.docId)
-	for _, x := range dj.docs {
+	ork.ensureLoaded(sess.docId)
+	for _, x := range ork.docs {
 		if x.DocId == sess.docId {
 			doc = x
 			break
@@ -495,11 +496,80 @@ func (dj *orchestrator) parseChange(sessionKey string, selStr, changeStr string)
 	if changeStr != "" {
 		cs = &biscript.ChangeSet{}
 		if err := cs.DeserializeJSON(changeStr); err != nil {
-			dj.xlog.Logf(common.LogSrcDocJug, "Failed to deserialize change set from JSON: %v", err)
+			ork.xlog.Logf(common.LogSrcOrchestrator, "Failed to deserialize change set from JSON: %v", err)
 			return
 		}
 	}
-	dj.xlog.Logf(common.LogSrcDocJug, "Parsed change from session %v: Sel %v", sessionKey, sel)
+	ork.xlog.Logf(common.LogSrcOrchestrator, "Parsed change from session %v: Sel %v", sessionKey, sel)
 	ok = true
+	return
+}
+
+// Gets the display name of the document. Returns empty string if document is not found.
+// Thread-safe.
+func (ork *orchestrator) GetDocumentName(docId string) string {
+	ork.mu.Lock()
+	defer ork.mu.Unlock()
+
+	ork.ensureLoaded(docId)
+	ix := ork.getDocIx(docId)
+	if ix == -1 {
+		return ""
+	}
+	return ork.docs[ix].Name
+}
+
+// Exports a document into DOCX and stores it in the filesystem for later download.
+// Returns ID that can be used for download in a subsequent call.
+// If doc is not found or the export fails, returns empty string.
+// Thread-safe.
+func (ork *orchestrator) ExportDocx(docId string) (downloadId string) {
+
+	var text []biscript.XieChar
+	downloadId = ""
+	var exportFilePath string
+
+	// Closure so we only lock as long as we're loading the document and coming up with the output file name
+	func() {
+		ork.mu.Lock()
+		defer ork.mu.Unlock()
+
+		// Grab doc and verify it exists
+		ork.ensureLoaded(docId)
+		ix := ork.getDocIx(docId)
+		if ix == -1 {
+			return
+		}
+		doc := ork.docs[ix]
+		// If dirty, save before exiting so user gets the actual latest content
+		if doc.dirty {
+			if err := doc.saveToFile(ork.getDocFileName(doc.DocId)); err != nil {
+				ork.xlog.Logf(common.LogSrcOrchestrator, "Error saving dirty document before export %v: %v", doc.DocId, err)
+			}
+		}
+		// Copy head  text
+		text = make([]biscript.XieChar, 0, len(doc.headText))
+		for _, xc := range doc.headText {
+			text = append(text, xc)
+		}
+		// Come up with unique file name locally
+		for {
+			downloadId = docId + "-" + getShortId() + ".docx"
+			exportFilePath = path.Join(ork.exportsFolder, downloadId)
+			if _, err := os.Stat(exportFilePath); err == nil {
+				continue
+			}
+			break
+		}
+	}()
+	// This indicates that doc does not exist
+	if downloadId == "" {
+		return
+	}
+	// Perform export; indicate error with empty download ID
+	if err := docx.Export(text, exportFilePath, ork.composer); err != nil {
+		downloadId = ""
+		ork.xlog.Logf(common.LogSrcOrchestrator, "Error exporting document to DOCX: %v", err)
+	}
 	return
 }

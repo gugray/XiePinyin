@@ -23,7 +23,7 @@ func InitTheApp(config *common.Config, xlog common.XieLogger) {
 	TheApp.Orchestrator.init(xlog, TheApp.Composer, config.DocsFolder, config.ExportsFolder)
 	TheApp.ConnectionManager.init(xlog, &TheApp.Orchestrator)
 
-	// Hook up the channels through which Doc Juggler sends to socket connected peers
+	// Hook up the channels through which orchestrator sends to socket connected peers
 	broadcast, terminateSessions := TheApp.ConnectionManager.getListenerChannels()
 	TheApp.Orchestrator.broadcast = broadcast
 	TheApp.Orchestrator.terminateSessions = terminateSessions

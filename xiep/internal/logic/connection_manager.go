@@ -8,7 +8,7 @@ import (
 	"xiep/internal/common"
 )
 
-// document juggler functionality related to edit sessions and processing changes over sockets.
+// Orchestrator functionality related to edit sessions and processing changes over sockets.
 // Interface allows us to decouple connectionManager from orchestrator
 type editSessionHandler interface {
 	startSession(sessionKey string) (startMsg string)
@@ -102,7 +102,7 @@ func (cm *connectionManager) peerGone(peer *connectedPeer) {
 	}
 	cm.peers = cm.peers[:i]
 
-	// Tell document juggler that session is over
+	// Tell orchestrator that session is over
 	cm.editSessionHandler.sessionClosed(peer.sessionKey)
 }
 func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
@@ -186,7 +186,7 @@ func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 	peer.closeConn <- "You shouldn't have said that"
 }
 
-// Running in separate goroutine, listens for broadcast requests from doc juggler and sends messages to peers.
+// Running in separate goroutine, listens for broadcast requests from orchestrator and sends messages to peers.
 func (cm *connectionManager) dispatch() {
 	for {
 		select {

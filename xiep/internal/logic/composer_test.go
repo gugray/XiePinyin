@@ -18,7 +18,7 @@ func TestComposerPinyinNumsToSurf(t *testing.T) {
 	}
 	c := loadComposerFromString(simpMapJson, tradMapJson)
 	for _, val := range vals {
-		surf := c.pinyinNumsToSurf(val[0])
+		surf := c.PinyinNumsToSurf(val[0])
 		if surf != val[1] {
 			t.Errorf("Wrong surface form for %v: exected %v, got %v", val[0], val[1], surf)
 		}

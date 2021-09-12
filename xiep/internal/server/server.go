@@ -41,6 +41,8 @@ func initHandlers(r *gin.Engine) {
 	rDoc.GET("/open/", handleDocOpen)
 	rDoc.POST("/create/", handleDocCreate)
 	rDoc.POST("/delete/", handleDocDelete)
+	rDoc.POST("/exportdocx/", handleDocExportDocx)
+	rDoc.GET("/download/", handleDocDownload)
 	// api/compose endpoint
 	r.GET("/api/compose/", handleCompose)
 	// Websocket at /sock

@@ -98,7 +98,8 @@ func getOrigSylls(orig string, lo string, loSylls []string) (origSylls []string)
 	return
 }
 
-func (cp *composer) pinyinNumsToSurf(pyNums string) string {
+// Parses input string with numbers, and returns pinyin with pretty tone marks.
+func (cp *composer) PinyinNumsToSurf(pyNums string) string {
 	pyNumsLo := strings.ToLower(pyNums)
 	loSylls := cp.pinyin.splitSyllables(pyNumsLo)
 	var loSyllsPretty = make([]string, 0)
