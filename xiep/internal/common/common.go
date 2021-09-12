@@ -17,6 +17,7 @@ const (
 	EnvVarName          = "XIE_ENV" // Set to "prod" in production system
 	ConfigVarName       = "CONFIG" // If set, will load confi.json from this path and not from DevConfigPath
 	DevConfigPath       = "../config.dev.json" // Path to config.json in development environment
+	VersionFileName     = "version.txt" // Name of option file with app's version, next to executable
 	LogSrcApp           = "Xie" // Source name for app-level log entries
 	LogSrcDocJug        = "DocJug" // Source name for log entries by document juggler
 	LogSrcSocketHandler = "SocketHandler"  // Source name for log enries by socket handler

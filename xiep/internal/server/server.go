@@ -51,8 +51,9 @@ func initContent(r *gin.Engine) {
 	r.Use(addCacheHeaders)
 	r.SetFuncMap(template.FuncMap{"appendTimestamp": appendTimestamp})
 	r.LoadHTMLFiles("index.tmpl")
+	versionStr := determineVersion()
 	serveIndex := func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{"Ver": "1.2.3"})
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{"Ver": versionStr})
 	}
 	r.GET("/", serveIndex)
 	r.GET("/doc/*id", serveIndex)
@@ -88,7 +89,7 @@ func initInfra(r *gin.Engine, logger common.XieLogger) {
 	if ix := strings.Index(config.BaseUrl, ":"); ix == -1 {
 		baseDomain = config.BaseUrl
 	} else {
-		baseDomain =config.BaseUrl[:ix]
+		baseDomain = config.BaseUrl[:ix]
 	}
 }
 
@@ -162,4 +163,20 @@ func requireParam(c *gin.Context, paramName string, isPost bool) (val string, ok
 		return
 	}
 	return
+}
+
+// Reads version from version.txt if present in working directory, or returns 0.0.0
+func determineVersion() string {
+	res := "0.0.0"
+
+	if bytes, err := os.ReadFile(common.VersionFileName); err == nil {
+		lines := strings.Split(string(bytes), "\n")
+		if len(lines) > 0 {
+			trimmed := strings.TrimSpace(lines[0])
+			if len(trimmed) > 0 {
+				res = trimmed
+			}
+		}
+	}
+	return res
 }
