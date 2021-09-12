@@ -15,8 +15,10 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Write version from REF to file
-      working-directory: ./xiep/deploy
-      run: 'echo "${GITHUB_REF/refs\/tags\//}" >version.txt' 
+      run: |
+        mkdir ./xiep/deploy
+        cd ./xiep/deploy
+        'echo "${GITHUB_REF/refs\/tags\//}" >version.txt' 
 
     #- name: Update project version
     #  uses: roryprimrose/set-vs-sdk-project-version@v1
