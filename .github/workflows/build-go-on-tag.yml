@@ -14,20 +14,6 @@ jobs:
     - name: Check out repository
       uses: actions/checkout@v2
 
-    - name: Write version from REF to file
-      working-directory: ./xiep
-      run: |
-        ls -l &
-        mkdir deploy &
-        cd deploy &
-        ls -l &
-        'echo "${GITHUB_REF/refs\/tags\//}" >version.txt' 
-
-    #- name: Update project version
-    #  uses: roryprimrose/set-vs-sdk-project-version@v1
-    #  with:
-    #    assemblyVersion: ${{ steps.gitversion.outputs.MajorMinorPatch }}
-
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
@@ -55,6 +41,10 @@ jobs:
 
     - name: Test
       run: go test ./...
+
+    - name: Write version from REF to file
+      working-directory: ./xiep/deploy
+      run: 'echo "${GITHUB_REF/refs\/tags\//}" >version.txt' 
 
     - name: ZIP output folder
       run: zip -r xiep-deploy.zip ./xiep/deploy
