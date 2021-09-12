@@ -49,7 +49,8 @@ jobs:
       run: 'echo "${GITHUB_REF/refs\/tags\//}" >version.txt' 
 
     - name: ZIP output folder
-      run: zip -r xiep-deploy.zip ./xiep/deploy
+      working-directory: ./xiep
+      run: zip -r xiep-deploy.zip ./deploy
 
     - name: Create Release
       id: create_release
