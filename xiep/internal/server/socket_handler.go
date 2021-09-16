@@ -15,11 +15,12 @@ var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
+		allowed := false
 		if r.Host == config.WebSocketAllowedOrigin {
-			return true
-		} else {
-			return false
+			allowed= true
 		}
+		xlog.Logf(common.LogSrcSocketHandler, "Websocket request from %v; allowed: %v", r.Host, allowed)
+		return allowed
 	},
 }
 
