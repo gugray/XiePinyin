@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -16,19 +15,23 @@ var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// TODO: Bring Config.WebSocketAllowedOrigins here
-		return true
+		if r.Host == config.WebSocketAllowedOrigin {
+			return true
+		} else {
+			return false
+		}
 	},
 }
 
 func handleSock(c *gin.Context) {
 
-	xlog.Logf(common.LogSrcApp, "Incoming request at socket endpoint; upgrading to websocket")
+	xlog.Logf(common.LogSrcSocketHandler, "Incoming request at socket endpoint; upgrading to websocket")
 	conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		panic(fmt.Sprintf("websocket upgrade failed: %v", err))
+		xlog.Logf(common.LogSrcSocketHandler, "Socket upgrade failed: %v", err)
+		return
 	}
-	xlog.Logf(common.LogSrcApp, "Websocket established")
+	xlog.Logf(common.LogSrcSocketHandler, "Websocket established")
 	defer func() {
 		err := conn.Close()
 		if err != nil {

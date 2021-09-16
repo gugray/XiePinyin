@@ -9,7 +9,7 @@ type Config struct {
 	LogFile                 string
 	ServicePort             uint
 	BaseUrl                 string
-	WebSocketAllowedOrigins string
+	WebSocketAllowedOrigin  string
 	DebugHacks              bool
 }
 
