@@ -4,8 +4,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"xiep/internal/common"
+)
+
+const (
+	cmDispatcherLoopMsec = 5 // Period of queue polling in dispatcher loop
 )
 
 // Orchestrator functionality related to edit sessions and processing changes over sockets.
@@ -32,31 +37,22 @@ type connectedPeer struct {
 
 type connectionManager struct {
 	xlog               common.XieLogger
-	exit               chan interface{}
+	exiting            int32
 	editSessionHandler editSessionHandler
-	broadcast          chan *changeToBroadcast
-	terminateSessions  chan map[string]bool
-
-	mu    sync.Mutex
-	peers []*connectedPeer
+	mu                 sync.Mutex // For connected peers
+	peers              []*connectedPeer
+	qmu                sync.Mutex // For message queue
+	queue              []interface{}
 }
 
 func (cm *connectionManager) init(xlog common.XieLogger, editSessionHandler editSessionHandler) {
 	cm.xlog = xlog
-	cm.exit = make(chan interface{})
 	cm.editSessionHandler = editSessionHandler
-	cm.broadcast = make(chan *changeToBroadcast)
-	cm.terminateSessions = make(chan map[string]bool)
 	go cm.dispatch()
 }
 
 func (cm *connectionManager) shutdown() {
-	close(cm.exit)
-}
-
-func (cm *connectionManager) getListenerChannels() (broadcast chan<- *changeToBroadcast,
-	terminateSessions chan<- map[string]bool) {
-	return cm.broadcast, cm.terminateSessions
+	atomic.AddInt32(&cm.exiting, 1)
 }
 
 // Registers a new socket connection when it comes in.
@@ -105,6 +101,7 @@ func (cm *connectionManager) peerGone(peer *connectedPeer) {
 	// Tell orchestrator that session is over
 	cm.editSessionHandler.sessionClosed(peer.sessionKey)
 }
+
 func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -186,58 +183,117 @@ func (cm *connectionManager) messageFromPeer(peer *connectedPeer, msg string) {
 	peer.closeConn <- "You shouldn't have said that"
 }
 
-// Running in separate goroutine, listens for broadcast requests from orchestrator and sends messages to peers.
+func (cm *connectionManager) broadcast(ctb *changeToBroadcast) {
+	cm.qmu.Lock()
+	defer cm.qmu.Unlock()
+	cm.queue = append(cm.queue, ctb)
+}
+
+func (cm *connectionManager) terminateSessions(sessionKeys map[string]bool) {
+	cm.qmu.Lock()
+	defer cm.qmu.Unlock()
+	cm.queue = append(cm.queue, sessionKeys)
+}
+
+// Running in separate goroutine, processes FIFO message queue.
 func (cm *connectionManager) dispatch() {
+	ticker := time.NewTicker(cmDispatcherLoopMsec * time.Millisecond)
+	batch := make([]interface{}, 0)
 	for {
-		select {
-		case ctb := <-cm.broadcast:
-			cm.doBroadcast(ctb)
-		case sessionKeys := <-cm.terminateSessions:
-			cm.doTerminateSessions(sessionKeys)
-		case <-cm.exit:
+		<-ticker.C
+		// Shutting down? Stop delivering and just leave
+		if atomic.LoadInt32(&cm.exiting) != 0 {
+			ticker.Stop()
 			break
 		}
+		// Copy entire queue, deliver everything in one fell swoop
+		// Hold lock only for this copy
+		func() {
+			cm.qmu.Lock()
+			defer cm.qmu.Unlock()
+			for _, x := range cm.queue {
+				batch = append(batch, x)
+			}
+			cm.queue = cm.queue[:0]
+		}()
+		// Perform each item
+		for _, itm := range batch {
+			switch v := itm.(type) {
+			case *changeToBroadcast:
+				cm.doBroadcast(v)
+			case map[string]bool:
+				cm.doTerminateSessions(v)
+			default:
+				panic("Unexpected type in message queue");
+			}
+		}
+		// Clear batch slice
+		batch = batch[:0]
 	}
 }
 
 // Broadcasts message to the peers that need to hear it.
 // Thread-safe; invoked from dispatch goroutine.
 func (cm *connectionManager) doBroadcast(ctb *changeToBroadcast) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 
+	// Gather peers to update, and to ack
+	// Only hold lock while gathering; subsequent sending no longer needs it
+	peersToUpdate := make([]*connectedPeer, 0)
+	var peerToAck *connectedPeer
+	func() {
+		cm.mu.Lock()
+		defer cm.mu.Unlock()
+		for _, peer := range cm.peers {
+			// Propagate to all provided session keys, except sender herself
+			if _, ok := ctb.receiverSessionKeys[peer.sessionKey]; ok {
+				if peer.sessionKey != ctb.sourceSessionKey {
+					peersToUpdate = append(peersToUpdate, peer)
+				}
+			}
+			// Acknowledge change to sender: but only for actual content changes!
+			// We're not acknowledging selection changes, as those don't change revision ID
+			if peer.sessionKey == ctb.sourceSessionKey && ctb.changeJson != "" {
+				peerToAck = peer
+			}
+		}
+	}()
+
+	// Build messages
 	updMsg := "UPDATE " + strconv.Itoa(ctb.newDocRevisionId) + " " + ctb.sourceSessionKey + " " + ctb.selJson
 	if ctb.changeJson != "" {
 		updMsg += " " + ctb.changeJson
 	}
 	ackMsg := "ACKCHANGE " + strconv.Itoa(ctb.sourceBaseDocRevisionId) + " " + strconv.Itoa(ctb.newDocRevisionId)
 
-	for _, peer := range cm.peers {
-		// Propagate to all provided session keys, except sender herself
-		if _, ok := ctb.receiverSessionKeys[peer.sessionKey]; ok {
-			if peer.sessionKey != ctb.sourceSessionKey {
-				peer.send <- updMsg
-			}
-		}
-		// Acknowledge change to sender: but only for actual content changes!
-		// We're not acknowledging selection changes, as those don't change revision ID
-		if peer.sessionKey == ctb.sourceSessionKey && ctb.changeJson != "" {
-			peer.send <- ackMsg
-		}
+	// Summon the pidgeons
+	for _, peer := range peersToUpdate {
+		peer.send <- updMsg
+	}
+	if peerToAck != nil {
+		peerToAck.send <- ackMsg
 	}
 }
 
 // Terminates sessions identified by the provided keys.
 // Thread-safe; invoked from dispatch goroutine.
 func (cm *connectionManager) doTerminateSessions(sessionKeys map[string]bool) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 
+	// Gather peers to close
 	// We only send signal to terminate, but don't remove from list of peers
 	// Socket handler will notify us of connection's closure via peerGone
-	for _, peer := range cm.peers {
-		if _, ok := sessionKeys[peer.sessionKey]; ok {
-			peer.closeConn <- "Terminating because session has been idle for too long"
+	// Only hold lock while gathering; subsequent sending no longer needs it
+	peersToClose := make([]*connectedPeer, 0)
+	func() {
+		cm.mu.Lock()
+		defer cm.mu.Unlock()
+		for _, peer := range cm.peers {
+			if _, ok := sessionKeys[peer.sessionKey]; ok {
+				peersToClose = append(peersToClose, peer)
+			}
 		}
+	}()
+	// Actually close
+	for _, peer := range peersToClose {
+		peer.closeConn <- "Terminating because session has been idle for too long"
 	}
 }

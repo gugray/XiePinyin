@@ -13,12 +13,23 @@ import (
 )
 
 const (
+	// TODO: rename to orks
 	docJugUnloadAfterSeconds          = 7800 // 2:10h; MUST BE GREATER THAN SessionIdleEndSeconds
 	docJugSessionRequestExpirySeconds = 10   // If requested session is not started in this time, we purge it
 	docJugSessionIdleEndSeconds       = 7200 // 2h; session is purged if idle for this long
 	docJugHousekeepPeriodSec          = 2    // Frequency of housekeeping loop
 	//docJugExportCleanupLoopSec        = 600  // Frequency of cleanup of exported files waiting for download
 )
+
+// Connection manager functionality related to sending messagest to connected peers.
+// Allows us to decouple the interacting types of orchestrator and connection manager.
+type peerMessenger interface {
+	// Broadcasts message to the peers that need to hear it.
+	broadcast(ctb *changeToBroadcast)
+
+	// Terminates sessions identified by the provided keys.
+	terminateSessions(sessionKeys map[string]bool)
+}
 
 // Represents the current selection in one active session.
 type sessionSelection struct {
@@ -59,8 +70,7 @@ type orchestrator struct {
 	docsFolder        string
 	exportsFolder     string
 	exit              chan interface{}
-	broadcast         chan<- *changeToBroadcast
-	terminateSessions chan<- map[string]bool
+	peerMessenger     peerMessenger
 
 	mu       sync.Mutex
 	docs     []*document
@@ -77,6 +87,11 @@ func (ork *orchestrator) init(xlog common.XieLogger,
 	ork.docsFolder = docsFolder
 	ork.exportsFolder = exportsFolder
 	ork.exit = make(chan interface{})
+}
+
+func (ork *orchestrator) startup(pm peerMessenger) {
+	ork.peerMessenger = pm
+	// Housekeep goroutine calls peer messenger functions, we cannot start before setting it.
 	go ork.housekeep()
 }
 
@@ -174,7 +189,7 @@ func (ork *orchestrator) cleanupSessions() {
 		}
 	}
 	ork.sessions = ork.sessions[:i]
-	ork.terminateSessions <- toTerminate
+	ork.peerMessenger.terminateSessions(toTerminate)
 }
 
 // Assembles full file system path of saved document.
@@ -455,7 +470,7 @@ func (ork *orchestrator) changeReceived(sessionKey string, clientRevisionId int,
 		ork.xlog.Logf(common.LogSrcOrchestrator, "Propagating change set and selection update")
 	}
 	// Showtime!
-	ork.broadcast <- &ctb
+	ork.peerMessenger.broadcast(&ctb)
 	return true
 }
 

@@ -23,15 +23,14 @@ func InitTheApp(config *common.Config, xlog common.XieLogger) {
 	TheApp.Orchestrator.init(xlog, TheApp.Composer, config.DocsFolder, config.ExportsFolder)
 	TheApp.ConnectionManager.init(xlog, &TheApp.Orchestrator)
 
-	// Hook up the channels through which orchestrator sends to socket connected peers
-	broadcast, terminateSessions := TheApp.ConnectionManager.getListenerChannels()
-	TheApp.Orchestrator.broadcast = broadcast
-	TheApp.Orchestrator.terminateSessions = terminateSessions
+	// Hook up orchestrator to connection manager
+	TheApp.Orchestrator.startup(&TheApp.ConnectionManager)
 }
 
 // Tells long-running background tasks to stop and clean up.
 func (app *xieApp) Shutdown() {
 	app.Orchestrator.shutdown()
 	app.ConnectionManager.shutdown()
+	//  TODO: thread through a waitgroup here
 	time.Sleep(200 * time.Millisecond)
 }
