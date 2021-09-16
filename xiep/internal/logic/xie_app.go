@@ -32,6 +32,7 @@ func InitTheApp(config *common.Config, xlog common.XieLogger) {
 	TheApp.Orchestrator.startup(&TheApp.ConnectionManager)
 }
 
+// Tells background processes to finish at graceful shutdown.
 func (app *xieApp) Shutdown() {
 	app.wgShutdown.Add(2);
 	app.Orchestrator.shutdown()

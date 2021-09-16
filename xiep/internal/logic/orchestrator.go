@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"sync"
@@ -17,7 +18,8 @@ const (
 	orkSessionRequestExpirySeconds = 10   // If requested session is not started in this time, we purge it
 	orkSessionIdleEndSeconds       = 7200 // 2h; session is purged if idle for this long
 	orkHousekeepPeriodSec          = 2    // Frequency of housekeeping loop
-	//orkExportCleanupLoopSec        = 600  // Frequency of cleanup of exported files waiting for download
+	orkExportCleanupLoopSec        = 600  // Frequency of cleanup of exported files waiting for download
+	orkExportFileMaxAgeMinutes     = 60   // How long exported DOCX files are kept
 )
 
 // Connection manager functionality related to sending messagest to connected peers.
@@ -64,13 +66,14 @@ type sessionStartMessage struct {
 }
 
 type orchestrator struct {
-	xlog          common.XieLogger
-	wgShutdown    *sync.WaitGroup
-	composer      *composer
-	docsFolder    string
-	exportsFolder string
-	exit          chan interface{}
-	peerMessenger peerMessenger
+	xlog              common.XieLogger
+	wgShutdown        *sync.WaitGroup
+	composer          *composer
+	docsFolder        string
+	exportsFolder     string
+	exit              chan interface{}
+	peerMessenger     peerMessenger
+	lastExportCleanup time.Time
 
 	mu       sync.Mutex
 	docs     []*document
@@ -97,6 +100,7 @@ func (ork *orchestrator) startup(pm peerMessenger) {
 	go ork.housekeep()
 }
 
+// Tells background goroutine to save dirty docs and finish.
 func (ork *orchestrator) shutdown() {
 	close(ork.exit)
 }
@@ -117,6 +121,7 @@ func (ork *orchestrator) housekeep() {
 		case <-ticker.C:
 			safeExec(ork.housekeepDocs)
 			safeExec(ork.cleanupSessions)
+			safeExec(ork.cleanupExports)
 		case <-ork.exit:
 			ork.xlog.Logf(common.LogSrcOrchestrator, "Housekeeping thread exiting")
 			ticker.Stop()
@@ -124,6 +129,26 @@ func (ork *orchestrator) housekeep() {
 			ork.xlog.Logf(common.LogSrcOrchestrator, "Housekeeping thread finished")
 			ork.wgShutdown.Done()
 			return
+		}
+	}
+}
+
+// Deletes exported DOCX files that have been around for too long.
+func (ork *orchestrator) cleanupExports() {
+	if !ork.lastExportCleanup.IsZero() && time.Since(ork.lastExportCleanup).Seconds() < orkExportCleanupLoopSec {
+		return
+	}
+	ork.lastExportCleanup = time.Now()
+	files, err := ioutil.ReadDir(ork.exportsFolder)
+	if err != nil {
+		ork.xlog.Logf(common.LogSrcOrchestrator, "Not cleaning up exports because got error listing directory: %v", err)
+		return
+	}
+	for _, f := range files {
+		if time.Since(f.ModTime()).Minutes() > orkExportFileMaxAgeMinutes {
+			if err := os.Remove(path.Join(ork.exportsFolder, f.Name())); err != nil {
+				ork.xlog.Logf(common.LogSrcOrchestrator, "Error deleting old export file: %v", err)
+			}
 		}
 	}
 }
