@@ -37,6 +37,7 @@ type connectedPeer struct {
 
 type connectionManager struct {
 	xlog               common.XieLogger
+	wgShutdown         *sync.WaitGroup
 	exiting            int32
 	editSessionHandler editSessionHandler
 	mu                 sync.Mutex // For connected peers
@@ -45,8 +46,11 @@ type connectionManager struct {
 	queue              []interface{}
 }
 
-func (cm *connectionManager) init(xlog common.XieLogger, editSessionHandler editSessionHandler) {
+func (cm *connectionManager) init(xlog common.XieLogger,
+	wgShutdown *sync.WaitGroup,
+	editSessionHandler editSessionHandler) {
 	cm.xlog = xlog
+	cm.wgShutdown = wgShutdown
 	cm.editSessionHandler = editSessionHandler
 	go cm.dispatch()
 }
@@ -224,12 +228,13 @@ func (cm *connectionManager) dispatch() {
 			case map[string]bool:
 				cm.doTerminateSessions(v)
 			default:
-				panic("Unexpected type in message queue");
+				panic("Unexpected type in message queue")
 			}
 		}
 		// Clear batch slice
 		batch = batch[:0]
 	}
+	cm.wgShutdown.Done()
 }
 
 // Broadcasts message to the peers that need to hear it.

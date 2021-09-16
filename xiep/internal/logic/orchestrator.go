@@ -13,12 +13,11 @@ import (
 )
 
 const (
-	// TODO: rename to orks
-	docJugUnloadAfterSeconds          = 7800 // 2:10h; MUST BE GREATER THAN SessionIdleEndSeconds
-	docJugSessionRequestExpirySeconds = 10   // If requested session is not started in this time, we purge it
-	docJugSessionIdleEndSeconds       = 7200 // 2h; session is purged if idle for this long
-	docJugHousekeepPeriodSec          = 2    // Frequency of housekeeping loop
-	//docJugExportCleanupLoopSec        = 600  // Frequency of cleanup of exported files waiting for download
+	orkUnloadAfterSeconds          = 7800 // 2:10h; MUST BE GREATER THAN SessionIdleEndSeconds
+	orkSessionRequestExpirySeconds = 10   // If requested session is not started in this time, we purge it
+	orkSessionIdleEndSeconds       = 7200 // 2h; session is purged if idle for this long
+	orkHousekeepPeriodSec          = 2    // Frequency of housekeeping loop
+	//orkExportCleanupLoopSec        = 600  // Frequency of cleanup of exported files waiting for download
 )
 
 // Connection manager functionality related to sending messagest to connected peers.
@@ -65,12 +64,13 @@ type sessionStartMessage struct {
 }
 
 type orchestrator struct {
-	xlog              common.XieLogger
-	composer          *composer
-	docsFolder        string
-	exportsFolder     string
-	exit              chan interface{}
-	peerMessenger     peerMessenger
+	xlog          common.XieLogger
+	wgShutdown    *sync.WaitGroup
+	composer      *composer
+	docsFolder    string
+	exportsFolder string
+	exit          chan interface{}
+	peerMessenger peerMessenger
 
 	mu       sync.Mutex
 	docs     []*document
@@ -78,11 +78,13 @@ type orchestrator struct {
 }
 
 func (ork *orchestrator) init(xlog common.XieLogger,
+	wgShutdown *sync.WaitGroup,
 	composer *composer,
 	docsFolder string,
 	exportsFolder string,
 ) {
 	ork.xlog = xlog
+	ork.wgShutdown = wgShutdown
 	ork.composer = composer
 	ork.docsFolder = docsFolder
 	ork.exportsFolder = exportsFolder
@@ -101,7 +103,7 @@ func (ork *orchestrator) shutdown() {
 
 // Performs periodic housekeeping like saving dirty documents, unloading stale docs, terminating inactive sessions
 func (ork *orchestrator) housekeep() {
-	ticker := time.NewTicker(docJugHousekeepPeriodSec * time.Second)
+	ticker := time.NewTicker(orkHousekeepPeriodSec * time.Second)
 	safeExec := func(f func()) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -120,6 +122,7 @@ func (ork *orchestrator) housekeep() {
 			ticker.Stop()
 			safeExec(ork.housekeepDocs)
 			ork.xlog.Logf(common.LogSrcOrchestrator, "Housekeeping thread finished")
+			ork.wgShutdown.Done()
 			return
 		}
 	}
@@ -140,7 +143,7 @@ func (ork *orchestrator) housekeepDocs() {
 			i := 0
 			var dirtyDoc *document
 			for _, doc := range ork.docs {
-				hasExpired := time.Now().UTC().Sub(doc.lastAccessedUtc).Seconds() > docJugUnloadAfterSeconds
+				hasExpired := time.Now().UTC().Sub(doc.lastAccessedUtc).Seconds() > orkUnloadAfterSeconds
 				if !hasExpired {
 					ork.docs[i] = doc
 					i++
@@ -175,11 +178,11 @@ func (ork *orchestrator) cleanupSessions() {
 		unload := false
 		// Requested too long ago, and not claimed yet
 		if !sess.requestedUtc.IsZero() &&
-			time.Now().UTC().Sub(sess.requestedUtc).Seconds() > docJugSessionRequestExpirySeconds {
+			time.Now().UTC().Sub(sess.requestedUtc).Seconds() > orkSessionRequestExpirySeconds {
 			unload = true
 		}
 		// Inactive for too long
-		if time.Now().UTC().Sub(sess.lastActiveUtc).Seconds() > docJugSessionIdleEndSeconds {
+		if time.Now().UTC().Sub(sess.lastActiveUtc).Seconds() > orkSessionIdleEndSeconds {
 			unload = true
 			toTerminate[sess.sessionKey] = true
 		}

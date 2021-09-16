@@ -25,6 +25,7 @@ const (
 	LoginTimeoutMinutes = 60 * 72                    // Expiry of login
 	Iso8601Layout       = "2006-01-02T15:04:05.999Z" // Format string for ISO8601 timestamps (used in auth cookie)
 	SessionIdKey        = "sessionId"                // Key in Gin context for storing session ID
+	ShutdownWaitMsec    = 1000                       // Wait max this long for background threads to finish in graceful shutdown
 )
 
 // Defines what a logger looks like for this app.
