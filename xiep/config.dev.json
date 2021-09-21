@@ -5,7 +5,7 @@
   "secretsFile": "../../_data/secrets.txt",
   "logFile": "../../_data/_logs/xiep.log",
   "servicePort": 1313,
-  "baseUrl": "100.121.75.50:1313/",
-  "webSocketAllowedOrigin": "100.121.75.50:1313",
+  "baseUrl": "localhost:1313/",
+  "webSocketAllowedOrigin": "localhost:1313",
   "debugHacks": true
 }

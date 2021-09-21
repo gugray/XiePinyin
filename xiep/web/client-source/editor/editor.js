@@ -508,7 +508,7 @@ module.exports = (function (elmHost, shortcutHandler) {
           }
           else if (ix == contentLength && x >= elm.offset().left + elm.width()) {
             res.ix = ix;
-            res.before = false;
+            res.before = true;
           }
         }
         else if (ix == contentLength - 1 && elmWord.offset().top + elmWord.outerHeight(true)) {
