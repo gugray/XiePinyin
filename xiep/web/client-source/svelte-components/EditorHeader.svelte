@@ -2,6 +2,8 @@
   export let name;
   export let inputType = "simp";
   export let docxEnabled = true;
+  export let wcHanzi = 42;
+  export let wcAlfa = 7;
 
   import { createEventDispatcher } from 'svelte';
 	const dispatch = createEventDispatcher();
@@ -46,6 +48,11 @@
     position: absolute; right: 30px; top: 10px; padding: 2px 10px 4px 10px; cursor: default;
     background-color: @selectionColor; &:hover { background-color: @hoverBgColor; }
   }
+  .wordcount {
+    position: absolute; right: 30px; bottom: 8px; font-size: 80%;
+    color: #666;
+    .val { font-weight: bold; }
+  }
 </style>
 
 <div class="title">
@@ -62,3 +69,4 @@
   </div>
 </div>
 <div class="close" on:click={onCloseClicked}>Close</div>
+<div class="wordcount"><span class="val">{wcHanzi}</span> 字 • <span class="val">{wcAlfa}</span> W</div>

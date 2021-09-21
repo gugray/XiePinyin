@@ -1,4 +1,15 @@
-﻿class ParaIndexItem {
+﻿class WordCounts {
+  constructor() {
+    /** Number of Hanzi in text
+     * @type {number} */
+    this.hanzi = 0;
+    /** Number of alphabetic words in text
+     * @type {number} */
+    this.alfa = 0;
+  }
+}
+
+class ParaIndexItem {
 
   constructor(startPos, text) {
 
@@ -12,6 +23,10 @@
     /** Text of this paragraph, excluding trailing newline.
      * @type{Array<BiChar>} */
     this.text = text;
+
+    /** This paragraph's word counts (Hanzi and alfa)
+     * @type{WordCounts} */
+    this.counts = null;
   }
 }
 
@@ -20,6 +35,19 @@ class ParaIndex {
     /** Paragraphs of the current document.
      *  @type{Array<ParaIndexItem>} */
     this.paras = [];
+  }
+
+  /** Sums up word counts in paragraphs for summary value.
+   * @returns WordCounts
+   */
+  getWordCounts() {
+    const wc = new WordCounts();
+    for (const para of this.paras) {
+      if (!para) continue;
+      wc.hanzi += para.counts.hanzi;
+      wc.alfa += para.counts.alfa;
+    }
+    return wc;
   }
 
   /**

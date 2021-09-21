@@ -57,6 +57,8 @@ module.exports = (function (elmHost, path, navigateTo) {
   var _docData = null;
   var _state = {
     inputType: initialInputType,
+    wcHanzi: 0,
+    wcAlfa: 0,
   };
 
   if (_local) loadLocalDoc();
@@ -135,6 +137,8 @@ module.exports = (function (elmHost, path, navigateTo) {
       props: {
         name: name,
         inputType: _state.inputType,
+        wcHanzi: _state.wcHanzi,
+        wcAlfa: _state.wcAlfa,
       }
     });
     _header.$on("inputType", e => {
@@ -153,6 +157,7 @@ module.exports = (function (elmHost, path, navigateTo) {
     _editor.setInputType(_state.inputType);
     _editor.onReplace(onReplace);
     _editor.onSelChange(onSelChange);
+    _editor.onWordcountChange(onWordcountChange);
   }
 
   function onKeyDown(e) {
@@ -189,6 +194,10 @@ module.exports = (function (elmHost, path, navigateTo) {
 
   function onSelChange(e) {
     _docData.processSelChange(e.detail);
+  }
+
+  function onWordcountChange(e) {
+    _header.$set({ wcHanzi: e.detail.hanzi, wcAlfa: e.detail.alfa });
   }
 
   function beforeLeave() {

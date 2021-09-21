@@ -276,7 +276,7 @@ module.exports = (function (elmHost, shortcutHandler) {
   }
 
   function replaceSel(chars) {
-    let evt = new CustomEvent("onReplace", {
+    let evtReplace = new CustomEvent("onReplace", {
       detail: {
         start: _sel.start,
         end: _sel.end,
@@ -347,24 +347,30 @@ module.exports = (function (elmHost, shortcutHandler) {
     // We have our new authoritative paragraph index!
     _paraIndex = newParaIndex;
 
-    //// Assemble new content in one
-    //var newCont = [];
-    //for (var i = 0; i < _sel.start; ++i) newCont.push(oldCont[i]);
-    //for (var i = 0; i < chars.length; ++i) newCont.push(chars[i]);
-    //for (var i = _sel.end; i < oldCont.length; ++i) newCont.push(oldCont[i]);
-    //_paraIndex = converter.text2dom(newCont);
-    //_elmHost.find(".para").remove();
-    //for (const para of _paraIndex.paras) _elmHost.append(para.elm);
+    // Dispatch event with updated word counts
+    dispatchWordcount();
 
-
+    // Update selection
     setSel(_sel.start + chars.length, _sel.start + chars.length, false);
     if (_elmHiddenInput.is(":focus")) setCaretBlinkie(true, true);
 
     // Dispatch onReplace event
-    _elmHost[0].dispatchEvent(evt);
+    _elmHost[0].dispatchEvent(evtReplace);
 
     // Return composition prompt
     return prompt;
+  }
+
+  function dispatchWordcount() {
+    const wc = _paraIndex.getWordCounts();
+    const evt = new CustomEvent("onWordcountChange", {
+      detail: {
+        hanzi: wc.hanzi,
+        alfa: wc.alfa,
+      }
+    });
+    _elmHost[0].dispatchEvent(evt);
+
   }
 
   function handleDown(shiftKey) {
@@ -662,6 +668,10 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmHost[0].addEventListener("onSelChange", handler);
   }
 
+  function onWordcountChange(handler) {
+    _elmHost[0].addEventListener("onWordcountChange", handler);
+  }
+
   return {
     setContent,
     setPeerSelections,
@@ -670,5 +680,6 @@ module.exports = (function (elmHost, shortcutHandler) {
     setInputType,
     onReplace,
     onSelChange,
+    onWordcountChange,
   };
 });
