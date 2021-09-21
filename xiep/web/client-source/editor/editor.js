@@ -67,6 +67,15 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmHiddenInput.keydown(onKeyDown);
     _elmHost.mousemove(onMouseMove);
     _elmHost.mouseup(onMouseUp);
+
+    // Put cursor to the correct position when showing document
+    setTimeout(function() {
+      refreshCaretAndSelection(false);
+    }, 100);
+    // Reposition cursor when widow is resized
+    $(window).resize(function(e) {
+      refreshCaretAndSelection(false);
+    });
   }
 
   function caretInterval() {
@@ -532,6 +541,12 @@ module.exports = (function (elmHost, shortcutHandler) {
     _sel.start = start;
     _sel.end = end;
     _sel.caretAtStart = caretAtStart;
+
+    refreshCaretAndSelection(preserveDesiredCaretX);
+  }
+
+  function refreshCaretAndSelection(preserveDesiredCaretX) {
+
     let hanziCaretX = 0, hanziCaretY = 0, pinyinCaretX = 0, pinyinCaretY = 0;
 
     const domRange = _paraIndex.text2DomRange(_sel.start, _sel.end);
@@ -561,8 +576,8 @@ module.exports = (function (elmHost, shortcutHandler) {
     if (_sel.start != _sel.end)
       elmEndPinyin = ePara.elm.find(".pinyin>span.ix" + domRange.end.charIx.toString());
 
-    var elmHanzi = caretAtStart ? elmStartHanzi : elmEndHanzi;
-    var elmPinyin = caretAtStart ? elmStartPinyin : elmEndPinyin;
+    var elmHanzi = _sel.caretAtStart ? elmStartHanzi : elmEndHanzi;
+    var elmPinyin = _sel.caretAtStart ? elmStartPinyin : elmEndPinyin;
     hanziCaretY = elmHanzi.offset().top - _elmHost.offset().top;
     if (elmPinyin.length != 0) pinyinCaretY = elmPinyin.offset().top - _elmHost.offset().top;
     else pinyinCaretY = hanziCaretY + _elmHanziCaret.height();
