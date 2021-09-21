@@ -2,15 +2,18 @@
 var $ = require("jquery");
 var pinyinMap = require("./pinyinmap");
 var enc = require("js-htmlencode").htmlEncode;
-var { ParaIndex, ParaIndexItem } = require("./paraindex");
+var { ParaIndex, ParaIndexItem, WordCounts } = require("./paraindex");
 
 const kEmptyPara = '<div class="para">{words}</div>';
 const kEmptyWordBi = '<div class="word"><div lang="zh-CN" class="hanzi">{hanzi}</div><div class="pinyin">{pinyin}</div></div>';
 const kEmptyWordAlfa = '<div class="word alfa"><div class="hanzi">{hanzi}</div></div>';
 
+const reNotPun = /[^\s\p{P}]+/u;
+
+
 function chars2words(para) {
   // If needed again: punctuation
-  // .match(/\\p{IsPunctuation}/g);
+  // .match(/\\p{IsPunctuation}/gu);
 
   const chars = para.text;
   if (chars.length == 0) return [];
@@ -61,6 +64,7 @@ function para2dom(para) {
   let words = chars2words(para);
   let wordsHtml = "";
   let charIx = 0;
+  let wcHanzi = 0, wcAlfa = 0;
 
   for (var i = 0; i < words.length; ++i) {
     let word = words[i];
@@ -76,6 +80,7 @@ function para2dom(para) {
         var pyDisplay = pinyinMap.toDisplay(pyNums);
         if (j != 0 && pyNums != word.chars[j].hanzi && pinyinMap.isVowelFirst(pyNums)) pyDisplay = "'" + pyDisplay;
         pinyinHtml += makeSpanX(pyDisplay, charIx, false);
+        ++wcHanzi;
       }
       hanziHtml += makeSpanPad(charIx);
       pinyinHtml += makeSpanPad(charIx);
@@ -85,11 +90,15 @@ function para2dom(para) {
     // Alfa word
     else {
       let hanziHtml = "";
+      let plainWord = "";
       for (var j = 0; j < word.chars.length; ++j, ++charIx) {
         hanziHtml += makeSpanX(word.chars[j].hanzi, charIx, false);
+        plainWord += word.chars[j].hanzi;
       }
       let wordHtml = kEmptyWordAlfa.replace("{hanzi}", hanziHtml);
       wordsHtml += wordHtml;
+      if (reNotPun.test(plainWord))
+        ++wcAlfa
     }
   }
 
@@ -99,7 +108,10 @@ function para2dom(para) {
   wordsHtml += lastWordHtml;
 
   let html = kEmptyPara.replace("{words}", wordsHtml);
-  return $(html);
+  return {
+    elm: $(html),
+    counts: new WordCounts(wcHanzi, wcAlfa),
+  };
 
   function makeSpanX(text, charIx, isFin) {
     const cls = isFin ? "x fin" : "x";
@@ -133,7 +145,9 @@ function text2dom(text) {
 
   for (let i = 0, startPos = 0; i < index.paras.length; ++i) {
     if (startPos != index.paras[i].startPos) throw "startPos mismatch";
-    index.paras[i].elm = para2dom(index.paras[i]);
+    const conv = para2dom(index.paras[i]);
+    index.paras[i].elm = conv.elm;
+    index.paras[i].counts = conv.counts;
     startPos += index.paras[i].text.length + 1;
   }
   return index;

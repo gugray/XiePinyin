@@ -10,7 +10,7 @@ const htmlPinyinCaret = '<div class="caret pinyin hidden">&nbsp;</div>';
 const htmlHiddenInput = '<input type="text" id="hiddenInput" autofocus="autofocus"/>';
 const htmlComposer = '<div class="composer"></div>';
 
-module.exports = (function (elmHost, shortcutHandler) {
+module.exports = (function (elmHost, shortcutHandler, wordcountChangeHandler) {
   var _elmHost = elmHost;
   var _shortcutHandler = shortcutHandler;
   var _inputType = "simp";
@@ -68,6 +68,9 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmHost.mousemove(onMouseMove);
     _elmHost.mouseup(onMouseUp);
 
+    // Wordcount change handler
+    _elmHost[0].addEventListener("onWordcountChange", wordcountChangeHandler);
+
     // Put cursor to the correct position when showing document
     setTimeout(function() {
       refreshCaretAndSelection(false);
@@ -114,6 +117,7 @@ module.exports = (function (elmHost, shortcutHandler) {
     for (let i = 0; i < _paraIndex.paras.length; ++i) _elmHost.append(_paraIndex.paras[i].elm);
     if (!newSel) setSel(0, 0, false);
     else setSel(newSel.start, newSel.end, newSel.caretAtStart);
+    dispatchWordcount();
   }
 
   function setInputType(inputType) {
@@ -337,7 +341,9 @@ module.exports = (function (elmHost, shortcutHandler) {
     // Create new DOM nodes, insert before sPara node
     for (const para of newParaIndex.paras) {
       if (para.elm) continue;
-      para.elm = converter.para2dom(para);
+      const conv = converter.para2dom(para);
+      para.elm = conv.elm;
+      para.counts = conv.counts;
       sPara.elm.before(para.elm);
     }
     // Remove replaced paragraphs from DOM
@@ -370,7 +376,6 @@ module.exports = (function (elmHost, shortcutHandler) {
       }
     });
     _elmHost[0].dispatchEvent(evt);
-
   }
 
   function handleDown(shiftKey) {
@@ -668,10 +673,6 @@ module.exports = (function (elmHost, shortcutHandler) {
     _elmHost[0].addEventListener("onSelChange", handler);
   }
 
-  function onWordcountChange(handler) {
-    _elmHost[0].addEventListener("onWordcountChange", handler);
-  }
-
   return {
     setContent,
     setPeerSelections,
@@ -680,6 +681,5 @@ module.exports = (function (elmHost, shortcutHandler) {
     setInputType,
     onReplace,
     onSelChange,
-    onWordcountChange,
   };
 });

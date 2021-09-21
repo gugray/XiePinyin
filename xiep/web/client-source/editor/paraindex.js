@@ -1,11 +1,11 @@
 ﻿class WordCounts {
-  constructor() {
+  constructor(hanzi = 0, alfa = 0) {
     /** Number of Hanzi in text
      * @type {number} */
-    this.hanzi = 0;
+    this.hanzi = hanzi;
     /** Number of alphabetic words in text
      * @type {number} */
-    this.alfa = 0;
+    this.alfa = alfa;
   }
 }
 
@@ -78,4 +78,4 @@ class ParaIndex {
   }
 };
 
-module.exports = { ParaIndex, ParaIndexItem };
+module.exports = { ParaIndex, ParaIndexItem, WordCounts };

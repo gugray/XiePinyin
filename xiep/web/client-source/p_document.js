@@ -151,13 +151,12 @@ module.exports = (function (elmHost, path, navigateTo) {
       _navigateTo("");
     });
 
-    _editor = require("./editor/editor")(_elmHost.find(".page"), onKeyDown);
+    _editor = require("./editor/editor")(_elmHost.find(".page"), onKeyDown, onWordcountChange);
     _editor.setContent(baseText, sel);
     _editor.setPeerSelections(peerSelections);
     _editor.setInputType(_state.inputType);
     _editor.onReplace(onReplace);
     _editor.onSelChange(onSelChange);
-    _editor.onWordcountChange(onWordcountChange);
   }
 
   function onKeyDown(e) {
